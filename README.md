@@ -250,5 +250,5 @@ connectcall/lib/
   - BLoC state management and event-driven calling workflow.
   - Responsive pixel-perfect UI replication from visual design mockups (`profile.png`, `on_call_page.png`, `pickup-call-page.png`).
   - Unit and widget test suite generation and regression verification.
-- **ChatGpt**
-
+  - **ChatGpt**
+  - UI Design
