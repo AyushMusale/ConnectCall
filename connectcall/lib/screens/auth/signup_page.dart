@@ -27,6 +27,18 @@ class _SignupPageState extends State<SignupPage> {
   final _confirmPasswordController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          context.read<AuthBloc>().add(const AuthResetState());
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
@@ -35,24 +47,29 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
+  void _handleLoginTap() {
+    try {
+      context.read<AuthBloc>().add(const AuthResetState());
+    } catch (_) {}
+    context.go('/login');
+  }
+
   void _submit(BuildContext context) {
     if (_formKey.currentState!.validate()) {
       context.read<AuthBloc>().add(
-            AuthSignUpSubmitted(
-              name: _nameController.text.trim(),
-              email: _emailController.text.trim(),
-              password: _passwordController.text,
-              confirmPassword: _confirmPasswordController.text,
-            ),
-          );
+        AuthSignUpSubmitted(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          confirmPassword: _confirmPasswordController.text,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<AuthBloc>(),
-      child: BlocConsumer<AuthBloc, AuthState>(
+    final content = BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.success) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -76,12 +93,16 @@ class _SignupPageState extends State<SignupPage> {
                 ),
               ),
             );
+            context.pushNamed('home');
           } else if (state.status == AuthStatus.failure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.white),
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -130,8 +151,17 @@ class _SignupPageState extends State<SignupPage> {
             ),
           );
         },
-      ),
-    );
+      );
+
+    try {
+      context.read<AuthBloc>();
+      return content;
+    } catch (_) {
+      return BlocProvider(
+        create: (_) => getIt<AuthBloc>(),
+        child: content,
+      );
+    }
   }
 
   /// Responsive single-column layout for mobile form factors
@@ -141,27 +171,21 @@ class _SignupPageState extends State<SignupPage> {
     required bool isLoading,
   }) {
     // Dynamic values scaled and clamped for mobile screens
-    final horizontalPadding =
-        (constraints.maxWidth * 0.055).clamp(16.0, 24.0);
-    final illustrationSize =
-        (constraints.maxWidth * 0.44).clamp(140.0, 210.0);
-    final titleFontSize =
-        (constraints.maxWidth * 0.078).clamp(24.0, 32.0);
-    final subtitleFontSize =
-        (constraints.maxWidth * 0.036).clamp(13.0, 14.5);
-    final cardHorizontalMargin =
-        ((constraints.maxWidth - 520) / 2).clamp(0.0, 32.0);
+    final horizontalPadding = (constraints.maxWidth * 0.055).clamp(16.0, 24.0);
+    final illustrationSize = (constraints.maxWidth * 0.44).clamp(140.0, 210.0);
+    final titleFontSize = (constraints.maxWidth * 0.078).clamp(24.0, 32.0);
+    final subtitleFontSize = (constraints.maxWidth * 0.036).clamp(13.0, 14.5);
+    final cardHorizontalMargin = ((constraints.maxWidth - 520) / 2).clamp(
+      0.0,
+      32.0,
+    );
 
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFF9F2),
-            Color(0xFFFFF3E7),
-            Colors.white,
-          ],
+          colors: [Color(0xFFFFF9F2), Color(0xFFFFF3E7), Colors.white],
           stops: [0.0, 0.35, 0.65],
         ),
       ),
@@ -241,9 +265,7 @@ class _SignupPageState extends State<SignupPage> {
 
               // Bottom section: Rounded White Form Card
               Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: cardHorizontalMargin,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: cardHorizontalMargin),
                 child: SignupForm(
                   formKey: _formKey,
                   nameController: _nameController,
@@ -252,7 +274,7 @@ class _SignupPageState extends State<SignupPage> {
                   confirmPasswordController: _confirmPasswordController,
                   isLoading: isLoading,
                   onSubmit: () => _submit(context),
-                  onLoginTap: () => context.go('/login'),
+                  onLoginTap: _handleLoginTap,
                 ),
               ),
             ],
@@ -268,12 +290,9 @@ class _SignupPageState extends State<SignupPage> {
     required BoxConstraints constraints,
     required bool isLoading,
   }) {
-    final panelPadding =
-        (constraints.maxWidth * 0.04).clamp(24.0, 56.0);
-    final formWidth =
-        (constraints.maxWidth * 0.44).clamp(380.0, 480.0);
-    final heroSize =
-        (constraints.maxWidth * 0.22).clamp(220.0, 320.0);
+    final panelPadding = (constraints.maxWidth * 0.04).clamp(24.0, 56.0);
+    final formWidth = (constraints.maxWidth * 0.44).clamp(380.0, 480.0);
+    final heroSize = (constraints.maxWidth * 0.22).clamp(220.0, 320.0);
 
     return Row(
       children: [
@@ -286,10 +305,7 @@ class _SignupPageState extends State<SignupPage> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFFF9F2),
-                  Color(0xFFFFF3E7),
-                ],
+                colors: [Color(0xFFFFF9F2), Color(0xFFFFF3E7)],
               ),
             ),
             child: SingleChildScrollView(
@@ -299,14 +315,9 @@ class _SignupPageState extends State<SignupPage> {
                 children: [
                   const BrandLogo(fontSize: 26, iconSize: 40),
                   const SizedBox(height: 48),
-                  const AuthHeader(
-                    titleFontSize: 44,
-                    subtitleFontSize: 16,
-                  ),
+                  const AuthHeader(titleFontSize: 44, subtitleFontSize: 16),
                   const SizedBox(height: 36),
-                  Center(
-                    child: AuthIllustration(size: heroSize),
-                  ),
+                  Center(child: AuthIllustration(size: heroSize)),
                 ],
               ),
             ),
@@ -342,7 +353,7 @@ class _SignupPageState extends State<SignupPage> {
                       confirmPasswordController: _confirmPasswordController,
                       isLoading: isLoading,
                       onSubmit: () => _submit(context),
-                      onLoginTap: () => context.go('/login'),
+                      onLoginTap: _handleLoginTap,
                     ),
                   ),
                 ),

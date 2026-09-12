@@ -28,7 +28,13 @@ class AuthLoginSubmitted extends AuthEvent {
   final String password;
 }
 
-/// Dispatched to reset the auth status back to initial state.
+/// Dispatched to reset the auth status back to initial state, deleting all existing state data.
 class AuthResetState extends AuthEvent {
   const AuthResetState();
 }
+
+/// Alias for [AuthResetState].
+typedef ResetState = AuthResetState;
+
+/// Alias specifically for resetting the sign-up BLoC state.
+typedef SignUpResetState = AuthResetState;

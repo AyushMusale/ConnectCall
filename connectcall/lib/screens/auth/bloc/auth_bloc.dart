@@ -29,11 +29,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignUpSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(status: AuthStatus.submitting, errorMessage: null));
+    // Delete all existing state data and start fresh in submitting state
+    emit(const AuthState(status: AuthStatus.submitting));
 
     // Basic business validation
     if (event.password != event.confirmPassword) {
-      emit(state.copyWith(
+      emit(const AuthState(
         status: AuthStatus.failure,
         errorMessage: 'Passwords do not match.',
       ));
@@ -52,17 +53,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         user: user,
       );
 
-      emit(state.copyWith(
+      emit(AuthState(
         status: AuthStatus.success,
         profile: profile,
       ));
     } on FirebaseAuthException catch (e) {
-      emit(state.copyWith(
+      emit(AuthState(
         status: AuthStatus.failure,
         errorMessage: e.message ?? 'Sign up failed.',
       ));
     } catch (e) {
-      emit(state.copyWith(
+      emit(AuthState(
         status: AuthStatus.failure,
         errorMessage: e.toString().replaceFirst(RegExp(r'^Exception: '), ''),
       ));
@@ -73,7 +74,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLoginSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(status: AuthStatus.submitting, errorMessage: null));
+    // Delete all existing state data and start fresh in submitting state
+    emit(const AuthState(status: AuthStatus.submitting));
 
     try {
       // Map raw inputs to domain UserModel inside BLoC
@@ -84,17 +86,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       final profile = await _loginUseCase.execute(user);
 
-      emit(state.copyWith(
+      emit(AuthState(
         status: AuthStatus.success,
         profile: profile,
       ));
     } on FirebaseAuthException catch (e) {
-      emit(state.copyWith(
+      emit(AuthState(
         status: AuthStatus.failure,
         errorMessage: e.message ?? 'Login failed.',
       ));
     } catch (e) {
-      emit(state.copyWith(
+      emit(AuthState(
         status: AuthStatus.failure,
         errorMessage: e.toString().replaceFirst(RegExp(r'^Exception: '), ''),
       ));
@@ -104,7 +106,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _onResetState(
     AuthResetState event,
     Emitter<AuthState> emit,
-  ) {
-    emit(const AuthState());
+  ) async{
+    await FirebaseAuth.instance.signOut();
+    emit(const AuthState.initial());
   }
 }
+
+/// Alias for [AuthBloc] when referred to as [SignUpBloc].
+typedef SignUpBloc = AuthBloc;
+

@@ -25,6 +25,18 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          context.read<AuthBloc>().add(const AuthResetState());
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -44,9 +56,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<AuthBloc>(),
-      child: BlocConsumer<AuthBloc, AuthState>(
+    final content = BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.success) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -70,6 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             );
+            context.pushNamed('home');
           } else if (state.status == AuthStatus.failure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -316,20 +327,20 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                                       const SizedBox(height: 8),
 
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton(
-                                          onPressed: () {},
-                                          child: const Text(
-                                            'Forgot Password?',
-                                            style: TextStyle(
-                                              color: Color(0xFFFF6E00),
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                      // Align(
+                                      //   alignment: Alignment.centerRight,
+                                      //   child: TextButton(
+                                      //     onPressed: () {},
+                                      //     child: const Text(
+                                      //       'Forgot Password?',
+                                      //       style: TextStyle(
+                                      //         color: Color(0xFFFF6E00),
+                                      //         fontSize: 13,
+                                      //         fontWeight: FontWeight.w600,
+                                      //       ),
+                                      //     ),
+                                      //   ),
+                                      // ),
                                       const SizedBox(height: 12),
 
                                       // Submit Button
@@ -345,7 +356,12 @@ class _LoginPageState extends State<LoginPage> {
                                       // Footer: Don't have an account? Sign Up
                                       Center(
                                         child: InkWell(
-                                          onTap: () => context.go('/signup'),
+                                          onTap: () {
+                                            try {
+                                              context.read<AuthBloc>().add(const AuthResetState());
+                                            } catch (_) {}
+                                            context.go('/signup');
+                                          },
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           child: Padding(
@@ -393,7 +409,16 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
         },
-      ),
-    );
+      );
+
+    try {
+      context.read<AuthBloc>();
+      return content;
+    } catch (_) {
+      return BlocProvider(
+        create: (_) => getIt<AuthBloc>(),
+        child: content,
+      );
+    }
   }
 }
