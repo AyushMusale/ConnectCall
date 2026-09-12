@@ -518,6 +518,11 @@ class _OnCallPageState extends State<OnCallPage> {
     double maxH,
     double horizontalPad,
   ) {
+    final mediaPadding = MediaQuery.paddingOf(context);
+    final usableH = (maxH - mediaPadding.top - mediaPadding.bottom).clamp(100.0, maxH);
+    final isCompact = usableH < 660;
+    final isUltraCompact = usableH < 540;
+
     return Center(
       child: SizedBox(
         width: contentWidth,
@@ -536,31 +541,45 @@ class _OnCallPageState extends State<OnCallPage> {
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: horizontalPad,
-                  vertical: 12.0,
+                  vertical: isUltraCompact ? 6.0 : 12.0,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopHeader(contentWidth),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_isVideoCall) ...[
-                            _buildVideoCallBadge(maxH),
-                            const SizedBox(height: 14),
-                          ],
-                          _buildAvatarWithHalos(contentWidth, maxH),
-                          const SizedBox(height: 20),
-                          _buildCallDetails(state),
-                        ],
+                child: LayoutBuilder(
+                  builder: (context, innerConstraints) {
+                    return SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: innerConstraints.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildTopHeader(contentWidth),
+                              Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_isVideoCall) ...[
+                                      _buildVideoCallBadge(usableH),
+                                      SizedBox(height: isCompact ? 8 : 14),
+                                    ],
+                                    _buildAvatarWithHalos(contentWidth, usableH),
+                                    SizedBox(height: isCompact ? 12 : 20),
+                                    _buildCallDetails(state),
+                                  ],
+                                ),
+                              ),
+                              Center(
+                                child: _buildVideoControlDock(isCompact: isCompact),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    Center(
-                      child: _buildVideoControlDock(),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -569,8 +588,8 @@ class _OnCallPageState extends State<OnCallPage> {
             Positioned(
               key: const Key('local_video_stream'),
               right: horizontalPad,
-              bottom: 114,
-              child: _buildLocalVideoPreview(),
+              bottom: isCompact ? 88 : 114,
+              child: _buildLocalVideoPreview(isCompact: isCompact),
             ),
           ],
         ),
@@ -650,7 +669,7 @@ class _OnCallPageState extends State<OnCallPage> {
   }
 
   /// Floating local camera preview container in the right bottom corner.
-  Widget _buildLocalVideoPreview() {
+  Widget _buildLocalVideoPreview({bool isCompact = false}) {
     if (_isLocalRendererInitialized &&
         _localRenderer.srcObject == null &&
         callsService.localStream != null) {
@@ -661,9 +680,12 @@ class _OnCallPageState extends State<OnCallPage> {
         _isLocalRendererInitialized &&
         _localRenderer.srcObject != null;
 
+    final width = isCompact ? 86.0 : 110.0;
+    final height = isCompact ? 122.0 : 155.0;
+
     return Container(
-      width: 110,
-      height: 155,
+      width: width,
+      height: height,
       decoration: BoxDecoration(
         color: const Color(0xFF1E242E),
         borderRadius: BorderRadius.circular(16),
@@ -739,9 +761,12 @@ class _OnCallPageState extends State<OnCallPage> {
 
   /// Video call floating control dock:
   /// [Mute] [Switch Camera] [Turn Off Camera] [End Call]
-  Widget _buildVideoControlDock() {
+  Widget _buildVideoControlDock({bool isCompact = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 14,
+        vertical: isCompact ? 8 : 10,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF1E242E).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(32),
@@ -766,15 +791,17 @@ class _OnCallPageState extends State<OnCallPage> {
             isActive: _isMuted,
             activeColor: const Color(0xFFEA3829),
             onTap: _handleToggleMute,
+            isCompact: isCompact,
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: isCompact ? 8 : 14),
           _buildCircleActionButton(
             icon: Icons.flip_camera_ios_rounded,
             label: 'Flip',
             isActive: false,
             onTap: _handleSwitchCamera,
+            isCompact: isCompact,
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: isCompact ? 8 : 14),
           _buildCircleActionButton(
             icon: _isCameraOff
                 ? Icons.videocam_off_rounded
@@ -783,8 +810,9 @@ class _OnCallPageState extends State<OnCallPage> {
             isActive: _isCameraOff,
             activeColor: const Color(0xFFEA3829),
             onTap: _handleToggleCamera,
+            isCompact: isCompact,
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: isCompact ? 8 : 14),
           _buildCircleActionButton(
             icon: Icons.call_end_rounded,
             label: 'End',
@@ -793,6 +821,7 @@ class _OnCallPageState extends State<OnCallPage> {
             bgColor: const Color(0xFFEA3829),
             iconColor: Colors.white,
             onTap: _handleEndCall,
+            isCompact: isCompact,
           ),
         ],
       ),
@@ -807,6 +836,7 @@ class _OnCallPageState extends State<OnCallPage> {
     Color? bgColor,
     Color? iconColor,
     required VoidCallback onTap,
+    bool isCompact = false,
   }) {
     final effectiveBg = bgColor ??
         (isActive
@@ -814,6 +844,8 @@ class _OnCallPageState extends State<OnCallPage> {
             : Colors.white.withValues(alpha: 0.12));
     final effectiveIconColor = iconColor ??
         (isActive ? activeColor : Colors.white);
+    final size = isCompact ? 42.0 : 48.0;
+    final iconSize = isCompact ? 20.0 : 22.0;
 
     return GestureDetector(
       onTap: onTap,
@@ -822,8 +854,8 @@ class _OnCallPageState extends State<OnCallPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: effectiveBg,
               shape: BoxShape.circle,
@@ -831,15 +863,15 @@ class _OnCallPageState extends State<OnCallPage> {
             child: Icon(
               icon,
               color: effectiveIconColor,
-              size: 22,
+              size: iconSize,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white70,
-              fontSize: 11,
+              fontSize: isCompact ? 10 : 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -953,8 +985,13 @@ class _OnCallPageState extends State<OnCallPage> {
   }
 
   Widget _buildAvatarWithHalos(double maxWidth, double maxHeight) {
+    final isUltraCompact = maxHeight < 540;
+    final isCompact = maxHeight < 660;
+    final minHalo = isUltraCompact ? 96.0 : (isCompact ? 114.0 : 170.0);
+    final maxHalo = isUltraCompact ? 124.0 : (isCompact ? 150.0 : 280.0);
+    final maxRatio = isUltraCompact ? 0.22 : (isCompact ? 0.26 : 0.35);
     final outerHaloSize =
-        (maxWidth * 0.70).clamp(180.0, (maxHeight * 0.35).clamp(180.0, 280.0));
+        (maxWidth * 0.68).clamp(minHalo, (maxHeight * maxRatio).clamp(minHalo, maxHalo));
     final innerHaloSize = outerHaloSize * 0.84;
     final avatarSize = outerHaloSize * 0.68;
     final hasAvatar = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;

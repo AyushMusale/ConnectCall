@@ -268,19 +268,36 @@ class _PickupCallPageState extends State<PickupCallPage> {
               builder: (context, constraints) {
                 final maxW = constraints.maxWidth;
                 final maxH = constraints.maxHeight;
+                final mediaPadding = MediaQuery.paddingOf(context);
+                final usableH = (maxH - mediaPadding.top - mediaPadding.bottom).clamp(100.0, maxH);
 
-                final isCompact = maxH < 620;
-                final contentWidth = maxW.clamp(300.0, 720.0);
-                final horizontalPadding = (maxW * 0.06).clamp(16.0, 36.0);
-                final topSpacing = isCompact ? (maxH * 0.025).clamp(10.0, 24.0) : (maxH * 0.05).clamp(24.0, 50.0);
-                final titleFontSize = (maxW * 0.068).clamp(22.0, 30.0);
-                final subtitleFontSize = (maxW * 0.035).clamp(12.0, 15.0);
-                final nameFontSize = (maxW * 0.068).clamp(22.0, 30.0);
-                final statusFontSize = (maxW * 0.038).clamp(13.5, 16.5);
-                final buttonSize = isCompact ? 68.0 : (maxW * 0.20).clamp(72.0, 84.0);
-                final actionIconSize = (buttonSize * 0.46).clamp(30.0, 38.0);
-                final labelFontSize = (maxW * 0.040).clamp(14.0, 16.5);
-                final bottomSpacing = isCompact ? (maxH * 0.04).clamp(16.0, 32.0) : (maxH * 0.07).clamp(32.0, 60.0);
+                final isUltraCompact = usableH < 540;
+                final isCompact = usableH < 660;
+                final contentWidth = maxW.clamp(280.0, 720.0);
+                final horizontalPadding = (maxW * 0.06).clamp(14.0, 36.0);
+                final topSpacing = isUltraCompact
+                    ? 6.0
+                    : (isCompact ? 10.0 : (usableH * 0.035).clamp(14.0, 36.0));
+                final titleFontSize =
+                    isUltraCompact ? 20.0 : (maxW * 0.068).clamp(22.0, 30.0);
+                final subtitleFontSize =
+                    isUltraCompact ? 11.5 : (maxW * 0.035).clamp(12.0, 15.0);
+                final nameFontSize =
+                    isUltraCompact ? 20.0 : (maxW * 0.068).clamp(22.0, 30.0);
+                final statusFontSize =
+                    isUltraCompact ? 12.5 : (maxW * 0.038).clamp(13.0, 16.5);
+                final buttonSize = isUltraCompact
+                    ? 56.0
+                    : (isCompact ? 62.0 : (maxW * 0.20).clamp(68.0, 84.0));
+                final actionIconSize = (buttonSize * 0.46).clamp(24.0, 38.0);
+                final labelFontSize =
+                    isUltraCompact ? 12.5 : (maxW * 0.040).clamp(13.5, 16.5);
+                final buttonGap = isUltraCompact ? 4.0 : (isCompact ? 6.0 : 12.0);
+                final avatarNameGap =
+                    isUltraCompact ? 8.0 : (isCompact ? 10.0 : 22.0);
+                final bottomSpacing = isUltraCompact
+                    ? 8.0
+                    : (isCompact ? 12.0 : (usableH * 0.05).clamp(16.0, 48.0));
 
                 return Stack(
                   children: [
@@ -300,62 +317,84 @@ class _PickupCallPageState extends State<PickupCallPage> {
                             padding: EdgeInsets.symmetric(
                               horizontal: horizontalPadding,
                             ),
-                            child: Column(
-                              children: [
-                                SizedBox(height: topSpacing),
+                            child: LayoutBuilder(
+                              builder: (context, innerConstraints) {
+                                return SingleChildScrollView(
+                                  physics: const ClampingScrollPhysics(),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: innerConstraints.maxHeight,
+                                    ),
+                                    child: IntrinsicHeight(
+                                      child: Column(
+                                        children: [
+                                          SizedBox(height: topSpacing),
 
-                                // Brand Title: Connect-Call
-                                _buildHeader(titleFontSize, subtitleFontSize),
+                                          // Brand Title: Connect-Call
+                                          _buildHeader(
+                                              titleFontSize, subtitleFontSize),
 
-                                const Spacer(flex: 2),
+                                          const Spacer(flex: 2),
 
-                                // Video Call Indicator Badge (above avatar)
-                                if (_isVideoCall) ...[
-                                  _buildVideoCallBadge(maxH),
-                                  SizedBox(height: isCompact ? 6.0 : (maxH * 0.02).clamp(6.0, 16.0)),
-                                ],
+                                          // Video Call Indicator Badge (above avatar)
+                                          if (_isVideoCall) ...[
+                                            _buildVideoCallBadge(usableH),
+                                            SizedBox(
+                                                height: isUltraCompact
+                                                    ? 4.0
+                                                    : (isCompact
+                                                        ? 6.0
+                                                        : (usableH * 0.02).clamp(6.0, 16.0))),
+                                          ],
 
-                                // Caller Avatar with Concentric Halos
-                                _buildAvatarWithHalos(maxW, maxH),
+                                          // Caller Avatar with Concentric Halos
+                                          _buildAvatarWithHalos(maxW, usableH),
 
-                                SizedBox(height: isCompact ? 12.0 : 24.0),
+                                          SizedBox(height: avatarNameGap),
 
-                                // Caller Name & Incoming Call Subtitle
-                                Text(
-                                  widget.contactName,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: const Color(0xFF1E242E),
-                                    fontSize: nameFontSize,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.3,
+                                          // Caller Name & Incoming Call Subtitle
+                                          Text(
+                                            widget.contactName,
+                                            textAlign: TextAlign.center,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: const Color(0xFF1E242E),
+                                              fontSize: nameFontSize,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: -0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Incoming call...',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: const Color(0xFF757B88),
+                                              fontSize: statusFontSize,
+                                              fontWeight: FontWeight.w400,
+                                              letterSpacing: -0.1,
+                                            ),
+                                          ),
+
+                                          const Spacer(flex: 3),
+
+                                          // Bottom Action Buttons: End & Pick Up
+                                          _buildActionButtons(
+                                            buttonSize: buttonSize,
+                                            iconSize: actionIconSize,
+                                            labelFontSize: labelFontSize,
+                                            buttonGap: buttonGap,
+                                            isCompact: isCompact,
+                                          ),
+
+                                          SizedBox(height: bottomSpacing),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Incoming call...',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: const Color(0xFF757B88),
-                                    fontSize: statusFontSize,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: -0.1,
-                                  ),
-                                ),
-
-                                const Spacer(flex: 3),
-
-                                // Bottom Action Buttons: End & Pick Up
-                                _buildActionButtons(
-                                  buttonSize: buttonSize,
-                                  iconSize: actionIconSize,
-                                  labelFontSize: labelFontSize,
-                                ),
-
-                                SizedBox(height: bottomSpacing),
-                              ],
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -479,11 +518,15 @@ class _PickupCallPageState extends State<PickupCallPage> {
   }
 
   Widget _buildAvatarWithHalos(double maxWidth, double maxHeight) {
-    final isCompact = maxHeight < 620;
-    final minHalo = isCompact ? 130.0 : 190.0;
-    final maxRatio = isCompact ? (_isVideoCall ? 0.26 : 0.32) : 0.36;
+    final isUltraCompact = maxHeight < 540;
+    final isCompact = maxHeight < 660;
+    final minHalo = isUltraCompact ? 96.0 : (isCompact ? 114.0 : 170.0);
+    final maxHalo = isUltraCompact ? 120.0 : (isCompact ? 144.0 : 280.0);
+    final maxRatio = isUltraCompact
+        ? (_isVideoCall ? 0.20 : 0.24)
+        : (isCompact ? (_isVideoCall ? 0.23 : 0.27) : 0.36);
     final outerHaloSize =
-        (maxWidth * 0.72).clamp(minHalo, (maxHeight * maxRatio).clamp(minHalo, 280.0));
+        (maxWidth * 0.65).clamp(minHalo, (maxHeight * maxRatio).clamp(minHalo, maxHalo));
     final innerHaloSize = outerHaloSize * 0.84;
     final avatarSize = outerHaloSize * 0.68;
     final hasAvatar = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;
@@ -547,6 +590,8 @@ class _PickupCallPageState extends State<PickupCallPage> {
     required double buttonSize,
     required double iconSize,
     required double labelFontSize,
+    double buttonGap = 12.0,
+    bool isCompact = false,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -561,6 +606,8 @@ class _PickupCallPageState extends State<PickupCallPage> {
           buttonSize: buttonSize,
           iconSize: iconSize,
           labelFontSize: labelFontSize,
+          buttonGap: buttonGap,
+          isCompact: isCompact,
           onTap: _handleEnd,
         ),
 
@@ -574,6 +621,8 @@ class _PickupCallPageState extends State<PickupCallPage> {
           buttonSize: buttonSize,
           iconSize: iconSize,
           labelFontSize: labelFontSize,
+          buttonGap: buttonGap,
+          isCompact: isCompact,
           onTap: _handlePickUp,
         ),
       ],
@@ -589,6 +638,8 @@ class _PickupCallPageState extends State<PickupCallPage> {
     required double buttonSize,
     required double iconSize,
     required double labelFontSize,
+    required double buttonGap,
+    required bool isCompact,
     required VoidCallback onTap,
   }) {
     return Column(
@@ -603,9 +654,9 @@ class _PickupCallPageState extends State<PickupCallPage> {
             boxShadow: [
               BoxShadow(
                 color: shadowColor,
-                blurRadius: 22,
-                spreadRadius: 2,
-                offset: const Offset(0, 8),
+                blurRadius: isCompact ? 12 : 22,
+                spreadRadius: isCompact ? 1 : 2,
+                offset: isCompact ? const Offset(0, 4) : const Offset(0, 8),
               ),
             ],
           ),
@@ -625,7 +676,7 @@ class _PickupCallPageState extends State<PickupCallPage> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: buttonGap),
         Text(
           label,
           style: TextStyle(

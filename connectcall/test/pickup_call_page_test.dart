@@ -383,7 +383,10 @@ void main() {
 
   group('PickupCallPage LayoutBuilder & Responsiveness Tests', () {
     final devices = <String, Size>{
+      'Ultra Compact (320x480)': const Size(320, 480),
+      'Small Phone Emulator (320x569)': const Size(320, 569),
       'Small Budget Phone (320x568)': const Size(320, 568),
+      'Compact Android (360x640)': const Size(360, 640),
       'iPhone SE / Compact (375x667)': const Size(375, 667),
       'Standard Android (360x780)': const Size(360, 780),
       'iPhone 14/15/16 (390x844)': const Size(390, 844),
