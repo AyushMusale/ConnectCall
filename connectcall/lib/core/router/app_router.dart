@@ -11,6 +11,7 @@ import '../../screens/contacts/contact_page.dart';
 import '../../screens/contacts/models/contact_model.dart';
 import '../../screens/home/home_page.dart';
 import '../../screens/home/models/call_log_model.dart';
+import '../../screens/profile/profile_page.dart';
 import '../../screens/splash/splash_screen.dart';
 
 class AppRouter {
@@ -45,6 +46,11 @@ class AppRouter {
         path: '/contacts',
         name: 'contacts',
         builder: (context, state) => const ContactPage(),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        builder: (context, state) => const ProfilePage(),
       ),
       GoRoute(
         path: '/make-call',

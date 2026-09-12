@@ -10,6 +10,7 @@ import 'services/firebase/auth.service.dart';
 import 'services/firebase/contact.service.dart';
 import 'services/firebase/history.service.dart';
 import 'services/firebase/login.service.dart';
+import 'services/firebase/profile.service.dart';
 import 'services/firebase/search.service.dart';
 import 'services/firebase/session.service.dart';
 import 'services/firebase/signaling.service.dart';
@@ -32,6 +33,10 @@ void configureDependencies() {
 
   if (!getIt.isRegistered<SessionService>()) {
     getIt.registerLazySingleton<SessionService>(SessionService.new);
+  }
+
+  if (!getIt.isRegistered<ProfileService>()) {
+    getIt.registerLazySingleton<ProfileService>(ProfileService.new);
   }
 
   if (!getIt.isRegistered<SearchService>()) {
@@ -135,5 +140,6 @@ WebRTCService get webRTCService => getIt<WebRTCService>();
 PermissionsService get permissionsService => getIt<PermissionsService>();
 SignalingService get signalingService => getIt<SignalingService>();
 CallsService get callsService => getIt<CallsService>();
+ProfileService get profileService => getIt<ProfileService>();
 CallBloc get callBloc => getIt<CallBloc>();
 

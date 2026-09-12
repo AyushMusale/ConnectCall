@@ -396,6 +396,8 @@ class _HomePageViewState extends State<_HomePageView> {
                         onTap: (index) {
                           if (index == 1) {
                             context.go('/contacts');
+                          } else if (index == 2) {
+                            context.go('/profile');
                           }
                         },
                       ),

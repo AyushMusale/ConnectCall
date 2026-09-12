@@ -218,6 +218,8 @@ class _ContactPageViewState extends State<_ContactPageView> {
                     onTap: (index) {
                       if (index == 0) {
                         context.go('/home');
+                      } else if (index == 2) {
+                        context.go('/profile');
                       }
                     },
                   ),

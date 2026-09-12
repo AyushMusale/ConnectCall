@@ -26,6 +26,8 @@ class AppBottomNav extends StatelessWidget {
       context.go('/home');
     } else if (index == 1) {
       context.go('/contacts');
+    } else if (index == 2) {
+      context.go('/profile');
     }
   }
 
