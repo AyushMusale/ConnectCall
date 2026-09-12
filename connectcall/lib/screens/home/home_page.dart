@@ -78,12 +78,14 @@ class _HomePageViewState extends State<_HomePageView> {
       context,
       contactName: call.name,
       avatarUrl: call.avatarUrl,
+      isOnline: call.isOnline,
       onAudioCall: () {
         Navigator.of(context).pop();
         context.push('/make-call', extra: {
           'otherUserId': call.callModel?.otherUserId ?? 'cnt-1',
           'otherUserName': call.name,
           'otherUserAvatar': call.avatarUrl,
+          'isOnline': call.isOnline,
           'type': 'audio',
           'autoStart': true,
         });
@@ -94,6 +96,7 @@ class _HomePageViewState extends State<_HomePageView> {
           'otherUserId': call.callModel?.otherUserId ?? 'cnt-1',
           'otherUserName': call.name,
           'otherUserAvatar': call.avatarUrl,
+          'isOnline': call.isOnline,
           'type': 'video',
           'autoStart': true,
         });

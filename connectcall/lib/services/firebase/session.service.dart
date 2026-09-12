@@ -99,9 +99,28 @@ class SessionService {
     }
   }
 
+  /// Updates the user's online presence status in Firestore under `/profile/{uid}`.
+  Future<void> updateOnlineStatus(bool isOnline) async {
+    try {
+      final user = currentUser ?? await resolveCurrentUser();
+      if (user == null) return;
+
+      await _db.collection('profile').doc(user.uid).set(
+        {
+          'isOnline': isOnline,
+          'lastSeen': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      // Gracefully handle uninitialized Firebase or offline environments
+    }
+  }
+
   /// Terminates the current session by signing out from Firebase Auth.
   Future<void> signOut() async {
     try {
+      await updateOnlineStatus(false);
       await _auth.signOut();
     } catch (_) {}
   }

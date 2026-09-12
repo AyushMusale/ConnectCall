@@ -41,6 +41,8 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+    _markUserOnlineIfAuthenticated();
+
     _controller = AnimationController(
       vsync: this,
       duration: widget.duration,
@@ -65,6 +67,17 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
   }
 
+  void _markUserOnlineIfAuthenticated() {
+    try {
+      if (getIt.isRegistered<SessionService>()) {
+        final sessionService = getIt<SessionService>();
+        if (sessionService.hasActiveSession()) {
+          sessionService.updateOnlineStatus(true);
+        }
+      }
+    } catch (_) {}
+  }
+
   void _handleCompletion() {
     if (!mounted) return;
     if (widget.onInitializationComplete != null) {
@@ -73,6 +86,11 @@ class _SplashScreenState extends State<SplashScreen>
       final hasSession = getIt.isRegistered<SessionService>()
           ? getIt<SessionService>().hasActiveSession()
           : false;
+      if (hasSession) {
+        try {
+          getIt<SessionService>().updateOnlineStatus(true);
+        } catch (_) {}
+      }
       context.go(hasSession ? '/home' : '/signup');
     }
   }

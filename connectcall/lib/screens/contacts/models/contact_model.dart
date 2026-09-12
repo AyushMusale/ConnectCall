@@ -8,12 +8,16 @@ class ContactModel {
     required this.otherUserName,
     this.otherUserAvatar,
     this.isGroup = false,
+    this.isOnline = false,
+    this.lastSeen,
   });
 
   final String otherUserId;
   final String otherUserName;
   final String? otherUserAvatar;
   final bool isGroup;
+  final bool isOnline;
+  final DateTime? lastSeen;
 
   /// Convenience / backward-compatible getters
   String get id => otherUserId;
@@ -26,7 +30,23 @@ class ContactModel {
       otherUserId: profile.id,
       otherUserName: profile.name,
       otherUserAvatar: profile.avatar,
+      isOnline: profile.isOnline,
+      lastSeen: profile.lastSeen,
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    try {
+      final dynamic dynamicVal = value;
+      if (dynamicVal.toDate != null) {
+        return dynamicVal.toDate() as DateTime;
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Factory constructor to parse contact from JSON map.
@@ -38,6 +58,8 @@ class ContactModel {
           (json['otherUserAvatar'] ?? json['avatarUrl'] ?? json['avatar'])
               as String?,
       isGroup: json['isGroup'] as bool? ?? false,
+      isOnline: (json['isOnline'] as bool?) ?? false,
+      lastSeen: _parseDateTime(json['lastSeen']),
     );
   }
 
@@ -48,6 +70,8 @@ class ContactModel {
       'otherUserName': otherUserName,
       'otherUserAvatar': otherUserAvatar,
       'isGroup': isGroup,
+      'isOnline': isOnline,
+      if (lastSeen != null) 'lastSeen': lastSeen!.toIso8601String(),
     };
   }
 
@@ -56,12 +80,16 @@ class ContactModel {
     String? otherUserName,
     String? otherUserAvatar,
     bool? isGroup,
+    bool? isOnline,
+    DateTime? lastSeen,
   }) {
     return ContactModel(
       otherUserId: otherUserId ?? this.otherUserId,
       otherUserName: otherUserName ?? this.otherUserName,
       otherUserAvatar: otherUserAvatar ?? this.otherUserAvatar,
       isGroup: isGroup ?? this.isGroup,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 
@@ -72,18 +100,21 @@ class ContactModel {
       otherUserName: 'Aditi Sharma',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      isOnline: true,
     ),
     ContactModel(
       otherUserId: 'cnt-2',
       otherUserName: 'Rohan Mehta',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      isOnline: false,
     ),
     ContactModel(
       otherUserId: 'cnt-3',
       otherUserName: 'Priya Nair',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150',
+      isOnline: true,
     ),
     ContactModel(
       otherUserId: 'cnt-4',
@@ -91,54 +122,63 @@ class ContactModel {
       otherUserAvatar:
           'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=150',
       isGroup: true,
+      isOnline: false,
     ),
     ContactModel(
       otherUserId: 'cnt-5',
       otherUserName: 'Karan Desai',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+      isOnline: true,
     ),
     ContactModel(
       otherUserId: 'cnt-6',
       otherUserName: 'Sneha Patil',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+      isOnline: false,
     ),
     ContactModel(
       otherUserId: 'cnt-7',
       otherUserName: 'Arjun Rao',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150',
+      isOnline: true,
     ),
     ContactModel(
       otherUserId: 'cnt-8',
       otherUserName: 'Meera Iyer',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
+      isOnline: false,
     ),
     ContactModel(
       otherUserId: 'cnt-9',
       otherUserName: 'Vikram Singh',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150',
+      isOnline: true,
     ),
     ContactModel(
       otherUserId: 'cnt-10',
       otherUserName: 'Isha Kapoor',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150',
+      isOnline: false,
     ),
     ContactModel(
       otherUserId: 'cnt-11',
       otherUserName: 'Rahul Verma',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150',
+      isOnline: true,
     ),
     ContactModel(
       otherUserId: 'cnt-12',
       otherUserName: 'Neha Gupta',
       otherUserAvatar:
           'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150',
+      isOnline: false,
     ),
   ];
 }

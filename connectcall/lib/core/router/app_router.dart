@@ -70,14 +70,17 @@ class AppRouter {
             name = extra.name;
             avatarUrl = extra.avatarUrl;
             otherUserId = extra.otherUserId;
+            isOnline = extra.isOnline;
           } else if (extra is CallLogModel) {
             name = extra.name;
             avatarUrl = extra.avatarUrl;
             otherUserId = extra.callModel?.otherUserId ?? otherUserId;
+            isOnline = extra.isOnline;
           } else if (extra is CallModel) {
             name = extra.otherUserName;
             avatarUrl = extra.otherUserAvatar;
             otherUserId = extra.otherUserId;
+            isOnline = extra.isOnline;
           } else if (extra is Map) {
             name = (extra['name'] ?? extra['otherUserName'] ?? name).toString();
             avatarUrl = extra['avatarUrl'] as String? ??

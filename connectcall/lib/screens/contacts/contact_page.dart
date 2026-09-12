@@ -19,7 +19,15 @@ class ContactPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _ContactPageView();
+    try {
+      context.read<ContactBloc>();
+      return const _ContactPageView();
+    } catch (_) {
+      return BlocProvider<ContactBloc>(
+        create: (_) => getIt<ContactBloc>(),
+        child: const _ContactPageView(),
+      );
+    }
   }
 }
 
@@ -64,12 +72,14 @@ class _ContactPageViewState extends State<_ContactPageView> {
       context,
       contactName: contact.otherUserName,
       avatarUrl: contact.otherUserAvatar,
+      isOnline: contact.isOnline,
       onAudioCall: () {
         Navigator.of(context).pop();
         context.push('/make-call', extra: {
           'otherUserId': contact.otherUserId,
           'otherUserName': contact.otherUserName,
           'otherUserAvatar': contact.otherUserAvatar,
+          'isOnline': contact.isOnline,
           'type': 'audio',
           'autoStart': true,
         });
@@ -80,6 +90,7 @@ class _ContactPageViewState extends State<_ContactPageView> {
           'otherUserId': contact.otherUserId,
           'otherUserName': contact.otherUserName,
           'otherUserAvatar': contact.otherUserAvatar,
+          'isOnline': contact.isOnline,
           'type': 'video',
           'autoStart': true,
         });

@@ -7,6 +7,7 @@ import 'screens/auth/bloc/auth_bloc.dart';
 import 'screens/call/bloc/call_bloc.dart';
 import 'screens/contacts/bloc/contact_bloc.dart';
 import 'screens/home/bloc/history_bloc.dart';
+import 'services/firebase/session.service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,8 +19,46 @@ void main() async {
   runApp(const MainApp());
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _updatePresence(true);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _updatePresence(true);
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _updatePresence(false);
+    }
+  }
+
+  void _updatePresence(bool isOnline) {
+    try {
+      if (getIt.isRegistered<SessionService>()) {
+        getIt<SessionService>().updateOnlineStatus(isOnline);
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {

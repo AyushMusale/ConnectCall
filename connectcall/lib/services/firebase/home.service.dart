@@ -53,6 +53,24 @@ class HomeService {
       });
     }).toList();
 
+    // Enrich calls with current online status of participants if profiles are accessible
+    try {
+      final profilesSnapshot = await _db.collection('profile').get();
+      final onlineMap = <String, bool>{};
+      for (final pDoc in profilesSnapshot.docs) {
+        final pData = pDoc.data();
+        if (pData['isOnline'] is bool) {
+          onlineMap[pDoc.id] = pData['isOnline'] as bool;
+        }
+      }
+      for (var i = 0; i < calls.length; i++) {
+        final otherId = calls[i].otherUserId;
+        if (onlineMap.containsKey(otherId)) {
+          calls[i] = calls[i].copyWith(isOnline: onlineMap[otherId]!);
+        }
+      }
+    } catch (_) {}
+
     // Sort calls descending (most recent first)
     calls.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 

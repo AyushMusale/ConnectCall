@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:connectcall/models/call_model.dart';
 import 'package:connectcall/models/history_model.dart';
+import 'package:connectcall/screens/home/models/call_log_model.dart';
 
 void main() {
   group('CallModel tests', () {
@@ -93,10 +94,36 @@ void main() {
         status: 'incoming',
       );
 
-      final updated = call.copyWith(otherUserName: 'Alice Smith', type: 'video');
+      final updated = call.copyWith(otherUserName: 'Alice Smith', type: 'video', isOnline: true);
       expect(updated.otherUserName, 'Alice Smith');
       expect(updated.type, 'video');
       expect(updated.otherUserId, '1');
+      expect(updated.isOnline, isTrue);
+    });
+
+    test('CallModel and CallLogModel support isOnline flag', () {
+      final call = CallModel(
+        otherUserId: 'u1',
+        otherUserName: 'Aditi',
+        type: 'audio',
+        createdAt: DateTime(2026, 9, 10),
+        status: 'incoming',
+        isOnline: true,
+      );
+      expect(call.isOnline, isTrue);
+
+      final json = call.toJson();
+      expect(json['isOnline'], isTrue);
+
+      final fromJson = CallModel.fromJson(json);
+      expect(fromJson.isOnline, isTrue);
+
+      // Verify CallLogModel extraction
+      final log = CallLogModel.fromCallModel(fromJson);
+      expect(log.isOnline, isTrue);
+
+      final updatedLog = log.copyWith(isOnline: false);
+      expect(updatedLog.isOnline, isFalse);
     });
   });
 

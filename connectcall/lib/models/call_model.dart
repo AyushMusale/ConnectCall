@@ -10,6 +10,7 @@ class CallModel {
     required this.createdAt,
     required this.status,
     this.duration,
+    this.isOnline = false,
   });
 
   /// Optional Firestore document ID.
@@ -39,6 +40,9 @@ class CallModel {
   /// Duration of the call in seconds (null or 0 for missed calls).
   final int? duration;
 
+  /// Whether the other participant is currently online.
+  final bool isOnline;
+
   /// Factory constructor to create a [CallModel] from a JSON map.
   factory CallModel.fromJson(Map<String, dynamic> json) {
     return CallModel(
@@ -51,6 +55,7 @@ class CallModel {
       createdAt: _parseDateTime(json['createdAt']),
       status: (json['status'] ?? 'incoming').toString(),
       duration: _parseDuration(json['duration']),
+      isOnline: (json['isOnline'] as bool?) ?? false,
     );
   }
 
@@ -66,6 +71,7 @@ class CallModel {
       'createdAt': createdAt.toIso8601String(),
       'status': status,
       'duration': duration,
+      'isOnline': isOnline,
     };
   }
 
@@ -80,6 +86,7 @@ class CallModel {
     DateTime? createdAt,
     String? status,
     int? duration,
+    bool? isOnline,
   }) {
     return CallModel(
       id: id ?? this.id,
@@ -91,6 +98,7 @@ class CallModel {
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       duration: duration ?? this.duration,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 

@@ -106,8 +106,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _onResetState(
     AuthResetState event,
     Emitter<AuthState> emit,
-  ) async{
-    await FirebaseAuth.instance.signOut();
+  ) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
     emit(const AuthState.initial());
   }
 }

@@ -1,5 +1,6 @@
 import 'package:connectcall/models/contacts_model.dart';
 import 'package:connectcall/models/profile_model.dart';
+import 'package:connectcall/screens/contacts/models/contact_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -81,6 +82,47 @@ void main() {
       expect(updated.name, 'Aditi Sharma');
       expect(updated.email, 'aditi@example.com');
       expect(updated.avatar, 'https://example.com/aditi_new.jpg');
+    });
+
+    test('ProfileModel supports isOnline and lastSeen serialization', () {
+      final now = DateTime(2026, 9, 12, 19, 30);
+      final profile = ProfileModel(
+        id: 'user_online',
+        name: 'Aditi Online',
+        email: 'aditi@example.com',
+        isOnline: true,
+        lastSeen: now,
+      );
+      expect(profile.isOnline, isTrue);
+      expect(profile.lastSeen, now);
+
+      final json = profile.toJson();
+      expect(json['isOnline'], isTrue);
+      expect(json['lastSeen'], now.toIso8601String());
+
+      final fromJson = ProfileModel.fromJson(json);
+      expect(fromJson.isOnline, isTrue);
+      expect(fromJson.lastSeen, now);
+
+      final copy = fromJson.copyWith(isOnline: false);
+      expect(copy.isOnline, isFalse);
+    });
+
+    test('ContactModel supports isOnline and maps from ProfileModel', () {
+      final profile = ProfileModel(
+        id: 'u1',
+        name: 'Aditi Sharma',
+        email: 'aditi@test.com',
+        isOnline: true,
+      );
+      final contact = ContactModel.fromProfile(profile);
+      expect(contact.isOnline, isTrue);
+
+      final json = contact.toJson();
+      expect(json['isOnline'], isTrue);
+
+      final fromJson = ContactModel.fromJson(json);
+      expect(fromJson.isOnline, isTrue);
     });
   });
 

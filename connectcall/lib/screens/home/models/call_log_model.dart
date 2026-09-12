@@ -22,6 +22,7 @@ class CallLogModel {
     this.avatarUrl,
     this.callModel,
     this.callerId,
+    this.isOnline = false,
   });
 
   final String name;
@@ -33,6 +34,7 @@ class CallLogModel {
   final String? avatarUrl;
   final CallModel? callModel;
   final String? callerId;
+  final bool isOnline;
 
   /// Creates a [CallLogModel] for UI display from a domain [CallModel].
   factory CallLogModel.fromCallModel(CallModel call) {
@@ -51,6 +53,33 @@ class CallLogModel {
       avatarUrl: call.otherUserAvatar,
       callModel: call,
       callerId: call.callerId,
+      isOnline: call.isOnline,
+    );
+  }
+
+  CallLogModel copyWith({
+    String? name,
+    CallType? callType,
+    String? timeSubtitle,
+    String? date,
+    String? time,
+    CallMediaType? mediaType,
+    String? avatarUrl,
+    CallModel? callModel,
+    String? callerId,
+    bool? isOnline,
+  }) {
+    return CallLogModel(
+      name: name ?? this.name,
+      callType: callType ?? this.callType,
+      timeSubtitle: timeSubtitle ?? this.timeSubtitle,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      mediaType: mediaType ?? this.mediaType,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      callModel: callModel ?? this.callModel,
+      callerId: callerId ?? this.callerId,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 
@@ -63,6 +92,7 @@ class CallLogModel {
       time: '5:45 PM',
       mediaType: CallMediaType.audio,
       avatarUrl: '',
+      isOnline: true,
     ),
     CallLogModel(
       name: 'Rohan Mehta',
@@ -72,6 +102,7 @@ class CallLogModel {
       time: '3:12 PM',
       mediaType: CallMediaType.audio,
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      isOnline: false,
     ),
     CallLogModel(
       name: 'Priya Nair',
@@ -81,6 +112,7 @@ class CallLogModel {
       time: '11:03 AM',
       mediaType: CallMediaType.video,
       avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150',
+      isOnline: true,
     ),
     CallLogModel(
       name: 'College Buddies',
@@ -90,6 +122,7 @@ class CallLogModel {
       time: '8:47 PM',
       mediaType: CallMediaType.video,
       avatarUrl: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=150',
+      isOnline: false,
     ),
     CallLogModel(
       name: 'Karan Desai',
@@ -99,6 +132,7 @@ class CallLogModel {
       time: '6:21 PM',
       mediaType: CallMediaType.audio,
       avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+      isOnline: true,
     ),
     CallLogModel(
       name: 'Sneha Patil',
@@ -108,6 +142,7 @@ class CallLogModel {
       time: '9:14 PM',
       mediaType: CallMediaType.audio,
       avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+      isOnline: false,
     ),
     CallLogModel(
       name: 'Arjun Rao',
@@ -117,6 +152,7 @@ class CallLogModel {
       time: '4:32 PM',
       mediaType: CallMediaType.video,
       avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150',
+      isOnline: true,
     ),
     CallLogModel(
       name: 'Meera Iyer',
@@ -126,6 +162,7 @@ class CallLogModel {
       time: '7:11 PM',
       mediaType: CallMediaType.audio,
       avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
+      isOnline: false,
     ),
     CallLogModel(
       name: 'Vikram Singh',
@@ -135,6 +172,7 @@ class CallLogModel {
       time: '1:05 PM',
       mediaType: CallMediaType.audio,
       avatarUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150',
+      isOnline: true,
     ),
   ];
 }
