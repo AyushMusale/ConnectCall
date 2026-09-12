@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/call_model.dart';
 import '../../screens/auth/login_page.dart';
 import '../../screens/auth/signup_page.dart';
+import '../../screens/call/bloc/call_bloc.dart';
 import '../../screens/call/make_call_page.dart';
 import '../../screens/call/on_call_page.dart';
 import '../../screens/call/pickup_call_page.dart';
@@ -139,9 +140,33 @@ class AppRouter {
             } else if (extra['id'] != null) {
               otherUserId = extra['id'].toString();
             }
-            if (extra['type'] != null) {
+            if (extra['callType'] != null) {
+              type = extra['callType'].toString();
+            } else if (extra['type'] != null) {
               type = extra['type'].toString();
             }
+            bool isIncoming = false;
+            String? callId;
+            if (extra['isIncoming'] is bool) {
+              isIncoming = extra['isIncoming'] as bool;
+            }
+            if (extra['callId'] != null) {
+              callId = extra['callId'].toString();
+            }
+            CallBloc? bloc;
+            if (extra['callBloc'] is CallBloc) {
+              bloc = extra['callBloc'] as CallBloc;
+            }
+
+            return OnCallPage(
+              otherUserId: otherUserId,
+              contactName: name,
+              avatarUrl: avatarUrl,
+              callType: type,
+              callId: callId,
+              isIncoming: isIncoming,
+              callBloc: bloc,
+            );
           }
 
           return OnCallPage(

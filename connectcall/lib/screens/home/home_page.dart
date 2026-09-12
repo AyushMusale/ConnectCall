@@ -164,45 +164,74 @@ class _HomePageViewState extends State<_HomePageView> {
     );
   }
 
-  Widget _buildEmptyView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFF4EC),
-                shape: BoxShape.circle,
+  Widget _buildEmptyView(BuildContext context, {double bottomPadding = 0}) {
+    return RefreshIndicator(
+      color: const Color(0xFFFF6E00),
+      onRefresh: () async {
+        final historyBloc = context.read<HistoryBloc>();
+        historyBloc.add(const HistoryFetchRequested());
+        try {
+          await historyBloc.stream
+              .firstWhere((s) => !s.isLoading)
+              .timeout(const Duration(seconds: 4));
+        } catch (_) {}
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
               ),
-              child: const Icon(
-                Icons.phone_missed_rounded,
-                size: 36,
-                color: Color(0xFFFF6E00),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomPadding),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFF4EC),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.phone_missed_rounded,
+                            size: 36,
+                            color: Color(0xFFFF6E00),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No call history',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E242E),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Calls you make or receive will appear here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'No call history',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E242E),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Calls you make or receive will appear here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -308,7 +337,10 @@ class _HomePageViewState extends State<_HomePageView> {
                                 }
     
                                 if (filteredCalls.isEmpty) {
-                                  return _buildEmptyView();
+                                  return _buildEmptyView(
+                                    context,
+                                    bottomPadding: listBottomPadding,
+                                  );
                                 }
     
                                 return RefreshIndicator(

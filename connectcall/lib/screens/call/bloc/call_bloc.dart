@@ -61,6 +61,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   StreamSubscription? _callStatusSubscription;
   StreamSubscription? _incomingCallSubscription;
 
+  String? _lastOtherUserId;
+  String? _lastOtherUserName;
+  String? _lastOtherUserAvatar;
+  String? _lastCallType;
+  DateTime? _lastCreatedAt;
+
   Future<void> _onCallStartRequested(
     CallStartRequested event,
     Emitter<CallState> emit,
@@ -72,6 +78,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     final initialCountdown = totalTimeoutSeconds > 0
         ? totalTimeoutSeconds
         : (_timeoutDuration.inMilliseconds > 0 ? 0 : 30);
+
+    _lastOtherUserId = event.otherUserId;
+    _lastOtherUserName = event.otherUserName;
+    _lastOtherUserAvatar = event.otherUserAvatar;
+    _lastCallType = event.type;
+    _lastCreatedAt = now;
 
     emit(state.copyWith(
       status: CallStateStatus.ringing,
@@ -89,8 +101,25 @@ class CallBloc extends Bloc<CallEvent, CallState> {
 
     // 2. Initiate call via CallsService
     try {
+      String? callerName;
+      String? callerAvatar;
+      if (Firebase.apps.isNotEmpty) {
+        try {
+          final profile = await _sessionService.getActiveProfile();
+          final user = await _sessionService.resolveCurrentUser();
+          callerName = (profile?.name.isNotEmpty ?? false)
+              ? profile!.name
+              : (user?.displayName?.isNotEmpty ?? false
+                  ? user!.displayName!
+                  : (user?.email?.split('@').first ?? 'Caller'));
+          callerAvatar = profile?.avatar ?? user?.photoURL;
+        } catch (_) {}
+      }
+
       final callId = await _callsService.startCall(
         event.otherUserId,
+        callerName: callerName,
+        callerAvatar: callerAvatar,
         type: event.type,
         isVideo: event.type == 'video',
         onCallStatusChanged: (status) {
@@ -123,10 +152,10 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     _ringCountdownTimer?.cancel();
     _ringTimeoutTimer?.cancel();
 
-    final duration = totalSeconds > 0
-        ? Duration(seconds: totalSeconds)
-        : (_timeoutDuration.inSeconds > 0
-            ? _timeoutDuration
+    final duration = _timeoutDuration > Duration.zero
+        ? _timeoutDuration
+        : (totalSeconds > 0
+            ? Duration(seconds: totalSeconds)
             : const Duration(seconds: 30));
     var remaining = duration.inSeconds;
 
@@ -206,6 +235,12 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         ? _timeoutDuration.inSeconds
         : 30;
 
+    _lastOtherUserId = event.callerId;
+    _lastOtherUserName = event.callerName;
+    _lastOtherUserAvatar = event.callerAvatar;
+    _lastCallType = event.type;
+    _lastCreatedAt = now;
+
     emit(state.copyWith(
       status: CallStateStatus.incoming,
       callId: event.callId,
@@ -237,7 +272,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     CallPickUpRequested event,
     Emitter<CallState> emit,
   ) async {
-    if (!state.isIncoming && !state.isRinging) return;
+    if (!state.isIncoming && !state.isRinging && !state.isInitial) return;
 
     final callId = state.callId;
     _cancelAllTimers();
@@ -261,7 +296,7 @@ class CallBloc extends Bloc<CallEvent, CallState> {
         await _callsService.answerCall(
           callId,
           type: state.callType,
-          isVideo: state.callType == 'video',
+          isVideo: state.callType.trim().toLowerCase() == 'video',
           onCallStatusChanged: (status) {
             add(CallStatusUpdated(status));
           },
@@ -277,6 +312,14 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     Emitter<CallState> emit,
   ) async {
     final callId = state.callId;
+
+    // Snapshot details before any awaits
+    final snapshotUserId = state.otherUserId ?? _lastOtherUserId;
+    final snapshotUserName = state.otherUserName ?? _lastOtherUserName;
+    final snapshotUserAvatar = state.otherUserAvatar ?? _lastOtherUserAvatar;
+    final snapshotCallType = state.callType.isNotEmpty ? state.callType : _lastCallType;
+    final snapshotCreatedAt = state.createdAt ?? _lastCreatedAt;
+
     _cancelAllTimers();
 
     emit(state.copyWith(
@@ -301,6 +344,11 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       callerStatus: 'missed',
       receiverStatus: 'missed',
       duration: 0,
+      otherUserId: snapshotUserId,
+      otherUserName: snapshotUserName,
+      otherUserAvatar: snapshotUserAvatar,
+      callType: snapshotCallType,
+      createdAt: snapshotCreatedAt,
     );
   }
 
@@ -346,6 +394,13 @@ class CallBloc extends Bloc<CallEvent, CallState> {
   ) async {
     if (!state.isRinging && !state.isIncoming) return;
 
+    // Snapshot details before any awaits
+    final snapshotUserId = state.otherUserId ?? _lastOtherUserId;
+    final snapshotUserName = state.otherUserName ?? _lastOtherUserName;
+    final snapshotUserAvatar = state.otherUserAvatar ?? _lastOtherUserAvatar;
+    final snapshotCallType = state.callType.isNotEmpty ? state.callType : _lastCallType;
+    final snapshotCreatedAt = state.createdAt ?? _lastCreatedAt;
+
     _cancelAllTimers();
 
     // Immediately emit missed status with 0 remaining seconds so UI responds instantaneously
@@ -373,6 +428,11 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       callerStatus: 'missed',
       receiverStatus: 'missed',
       duration: 0,
+      otherUserId: snapshotUserId,
+      otherUserName: snapshotUserName,
+      otherUserAvatar: snapshotUserAvatar,
+      callType: snapshotCallType,
+      createdAt: snapshotCreatedAt,
     );
   }
 
@@ -385,6 +445,13 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     final wasOngoing = state.isOngoing;
     final finalDuration = state.durationSeconds;
     final reason = event.reason ?? 'ended';
+
+    // Snapshot details before any awaits
+    final snapshotUserId = state.otherUserId ?? _lastOtherUserId;
+    final snapshotUserName = state.otherUserName ?? _lastOtherUserName;
+    final snapshotUserAvatar = state.otherUserAvatar ?? _lastOtherUserAvatar;
+    final snapshotCallType = state.callType.isNotEmpty ? state.callType : _lastCallType;
+    final snapshotCreatedAt = state.createdAt ?? _lastCreatedAt;
 
     _cancelAllTimers();
 
@@ -417,6 +484,11 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       callerStatus: callerStatus,
       receiverStatus: receiverStatus,
       duration: wasOngoing ? finalDuration : 0,
+      otherUserId: snapshotUserId,
+      otherUserName: snapshotUserName,
+      otherUserAvatar: snapshotUserAvatar,
+      callType: snapshotCallType,
+      createdAt: snapshotCreatedAt,
     );
   }
 
@@ -449,38 +521,59 @@ class CallBloc extends Bloc<CallEvent, CallState> {
     required String callerStatus,
     required String receiverStatus,
     required int duration,
+    String? otherUserId,
+    String? otherUserName,
+    String? otherUserAvatar,
+    String? callType,
+    DateTime? createdAt,
   }) async {
-    if (Firebase.apps.isEmpty) {
-      return;
-    }
     // 1. Resolve caller from active Firestore profile and session
-    final profile = await _sessionService.getActiveProfile();
-    final user = await _sessionService.resolveCurrentUser();
-    final callerId = user?.uid ?? profile?.id ?? '';
-    final callerName = (profile?.name.isNotEmpty ?? false)
-        ? profile!.name
-        : (user?.displayName?.isNotEmpty ?? false
-            ? user!.displayName!
-            : (user?.email?.split('@').first ?? 'Caller'));
-    final callerAvatar = profile?.avatar ?? user?.photoURL;
+    String callerId = '';
+    String callerName = 'Caller';
+    String? callerAvatar;
 
-    // 2. Resolve receiver details (already provided from contact, history, or signaling)
-    final receiverId = state.otherUserId ?? '';
-    final receiverName = (state.otherUserName != null && state.otherUserName!.isNotEmpty)
-        ? state.otherUserName!
+    if (Firebase.apps.isNotEmpty) {
+      try {
+        final profile = await _sessionService.getActiveProfile();
+        final user = await _sessionService.resolveCurrentUser();
+        callerId = user?.uid ?? profile?.id ?? '';
+        callerName = (profile?.name.isNotEmpty ?? false)
+            ? profile!.name
+            : (user?.displayName?.isNotEmpty ?? false
+                ? user!.displayName!
+                : (user?.email?.split('@').first ?? 'Caller'));
+        callerAvatar = profile?.avatar ?? user?.photoURL;
+      } catch (_) {}
+    }
+
+    // 2. Resolve receiver details from explicit snapshot arguments, falling back to state/cache
+    final receiverId = (otherUserId != null && otherUserId.isNotEmpty)
+        ? otherUserId
+        : ((state.otherUserId != null && state.otherUserId!.isNotEmpty)
+            ? state.otherUserId!
+            : (_lastOtherUserId ?? ''));
+    final rawReceiverName = (otherUserName != null && otherUserName.isNotEmpty)
+        ? otherUserName
+        : ((state.otherUserName != null && state.otherUserName!.isNotEmpty)
+            ? state.otherUserName
+            : _lastOtherUserName);
+    final receiverName = (rawReceiverName != null && rawReceiverName.isNotEmpty)
+        ? rawReceiverName
         : 'Contact';
-    final receiverAvatar = state.otherUserAvatar;
+    final receiverAvatar = otherUserAvatar ?? state.otherUserAvatar ?? _lastOtherUserAvatar;
 
-    final callType = state.callType;
-    final createdAt = state.createdAt ?? DateTime.now();
+    final effectiveCallType = (callType != null && callType.isNotEmpty)
+        ? callType
+        : (state.callType.isNotEmpty ? state.callType : (_lastCallType ?? 'audio'));
+    final effectiveCreatedAt = createdAt ?? state.createdAt ?? _lastCreatedAt ?? DateTime.now();
 
     final callerEntry = CallModel(
       callerId: callerId,
       otherUserId: receiverId,
       otherUserName: receiverName,
       otherUserAvatar: receiverAvatar,
-      type: callType,
-      createdAt: createdAt,
+      type: effectiveCallType,
+      createdAt: effectiveCreatedAt,
       status: callerStatus,
       duration: duration,
     );
@@ -490,8 +583,8 @@ class CallBloc extends Bloc<CallEvent, CallState> {
       otherUserId: callerId,
       otherUserName: callerName,
       otherUserAvatar: callerAvatar,
-      type: callType,
-      createdAt: createdAt,
+      type: effectiveCallType,
+      createdAt: effectiveCreatedAt,
       status: receiverStatus,
       duration: duration,
     );

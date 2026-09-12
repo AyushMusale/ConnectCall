@@ -18,9 +18,21 @@ class CallsService {
 
   String? _currentCallId;
   MediaStream? _remoteStream;
+  final StreamController<MediaStream?> _remoteStreamController =
+      StreamController<MediaStream?>.broadcast();
+  final StreamController<MediaStream?> _localStreamController =
+      StreamController<MediaStream?>.broadcast();
   StreamSubscription<dynamic>? _callSubscription;
   StreamSubscription<dynamic>? _candidatesSubscription;
   StreamSubscription<dynamic>? _incomingCallsSubscription;
+
+  /// Stream of remote media stream updates for reactive UI binding.
+  Stream<MediaStream?> get onRemoteStreamChange =>
+      _remoteStreamController.stream;
+
+  /// Stream of local media stream updates for reactive UI binding.
+  Stream<MediaStream?> get onLocalStreamChange =>
+      _localStreamController.stream;
 
   /// Returns the continuous incoming calls stream subscription if active.
   StreamSubscription<dynamic>? get incomingCallsSubscription =>
@@ -38,8 +50,19 @@ class CallsService {
   /// Returns the active [RTCPeerConnection].
   RTCPeerConnection? get peerConnection => _webRTCService.peerConnection;
 
+  /// Switches camera between front and rear on the active video call.
+  Future<void> switchCamera() => _webRTCService.switchCamera();
+
+  /// Enables or disables the local video track.
+  void toggleVideo(bool enabled) => _webRTCService.toggleVideoTrack(enabled);
+
+  /// Enables or disables the local audio track.
+  void toggleAudio(bool enabled) => _webRTCService.toggleAudioTrack(enabled);
+
   Future<String> startCall(
     String otherUserId, {
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
     bool isVideo = false,
     void Function(MediaStream remoteStream)? onRemoteStream,
@@ -51,6 +74,8 @@ class CallsService {
       // 1. Create call document & 2. Get callId
       final callId = await _signalingService.createCall(
         receiverId: otherUserId,
+        callerName: callerName,
+        callerAvatar: callerAvatar,
         type: callType,
       );
       _currentCallId = callId;
@@ -62,11 +87,13 @@ class CallsService {
       pc.onTrack = (RTCTrackEvent event) {
         if (event.streams.isNotEmpty) {
           _remoteStream = event.streams.first;
+          _remoteStreamController.add(event.streams.first);
           onRemoteStream?.call(event.streams.first);
         }
       };
       pc.onAddStream = (MediaStream stream) {
         _remoteStream = stream;
+        _remoteStreamController.add(stream);
         onRemoteStream?.call(stream);
       };
 
@@ -85,6 +112,7 @@ class CallsService {
       } else {
         await _webRTCService.addAudioOnlyLocalStream(pc);
       }
+      _localStreamController.add(_webRTCService.localStream);
 
       // 6. Create offer
       final offer = await _webRTCService.createOffer(pc);
@@ -161,7 +189,8 @@ class CallsService {
       }
       _currentCallId = callId;
 
-      var callType = (isVideo || type == 'video') ? 'video' : 'audio';
+      var callType =
+          (isVideo || type.trim().toLowerCase() == 'video') ? 'video' : 'audio';
 
       // 1. Create PeerConnection
       final pc = await _webRTCService.createPeerConnectionOnly();
@@ -170,11 +199,13 @@ class CallsService {
       pc.onTrack = (RTCTrackEvent event) {
         if (event.streams.isNotEmpty) {
           _remoteStream = event.streams.first;
+          _remoteStreamController.add(event.streams.first);
           onRemoteStream?.call(event.streams.first);
         }
       };
       pc.onAddStream = (MediaStream stream) {
         _remoteStream = stream;
+        _remoteStreamController.add(stream);
         onRemoteStream?.call(stream);
       };
 
@@ -189,7 +220,7 @@ class CallsService {
 
       // 3. Check if call type or offer is already in the call document if not provided
       RTCSessionDescription? incomingOffer = offer;
-      if (incomingOffer == null || (!isVideo && type == 'audio')) {
+      if (incomingOffer == null || (callType != 'video')) {
         try {
           final doc = await _signalingService.getCall(callId);
           final data = doc.data();
@@ -201,7 +232,8 @@ class CallsService {
                 offerData['type'] as String?,
               );
             }
-            if (!isVideo && type == 'audio' && data['type'] == 'video') {
+            if (callType != 'video' &&
+                data['type']?.toString().trim().toLowerCase() == 'video') {
               callType = 'video';
             }
           }
@@ -216,6 +248,7 @@ class CallsService {
       } else {
         await _webRTCService.addAudioOnlyLocalStream(pc);
       }
+      _localStreamController.add(_webRTCService.localStream);
 
       // 5. Helper to set remote offer, create answer, and send answer
       bool answerSent = false;
@@ -318,6 +351,8 @@ class CallsService {
       await _webRTCService.dispose();
 
       _remoteStream = null;
+      _remoteStreamController.add(null);
+      _localStreamController.add(null);
       _currentCallId = null;
     }
   }

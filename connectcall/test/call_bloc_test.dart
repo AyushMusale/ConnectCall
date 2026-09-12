@@ -20,6 +20,8 @@ class MockCallsService extends CallsService {
   @override
   Future<String> startCall(
     String otherUserId, {
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
     bool isVideo = false,
     void Function(MediaStream remoteStream)? onRemoteStream,
@@ -305,6 +307,50 @@ void main() {
         bloc.stream,
         emitsThrough(predicate<CallState>((s) => s.isOngoing)),
       );
+
+      await bloc.close();
+    });
+
+    test('CallReset dispatched during timeout missed preserves contact name and otherUserId in history', () async {
+      final bloc = CallBloc(
+        callsService: mockCallsService,
+        signalingService: mockSignalingService,
+        historyService: mockHistoryService,
+        sessionService: mockSessionService,
+        timeoutDuration: const Duration(milliseconds: 50),
+      );
+
+      bloc.add(const CallStartRequested(
+        otherUserId: 'user_target_456',
+        otherUserName: 'Sneha Patil',
+        otherUserAvatar: 'https://example.com/sneha.jpg',
+        type: 'audio',
+      ));
+
+      // As soon as missed is emitted, simulate UI dispatching CallReset immediately
+      bloc.stream.listen((state) {
+        if (state.isMissed) {
+          bloc.add(const CallReset());
+        }
+      });
+
+      await expectLater(
+        bloc.stream,
+        emitsThrough(predicate<CallState>((s) => s.isMissed)),
+      );
+
+      // Allow async history writing to complete
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(mockHistoryService.recordedCalls.length, 1);
+      final entry = mockHistoryService.recordedCalls.first;
+      final callerCall = entry['callerCall'] as CallModel;
+
+      expect(callerCall.otherUserId, 'user_target_456');
+      expect(callerCall.otherUserName, 'Sneha Patil');
+      expect(callerCall.otherUserAvatar, 'https://example.com/sneha.jpg');
+      expect(callerCall.status, 'missed');
+      expect(callerCall.type, 'audio');
 
       await bloc.close();
     });

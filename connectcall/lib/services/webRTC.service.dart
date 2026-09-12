@@ -195,6 +195,36 @@ class WebRTCService {
     RTCSessionDescription offer,
   ) => setRemoteDescription(peerConnection, offer);
 
+  /// Switches between front and rear cameras on the active local video track.
+  Future<void> switchCamera() async {
+    final videoTracks = _localStream?.getVideoTracks();
+    if (videoTracks != null && videoTracks.isNotEmpty) {
+      try {
+        await Helper.switchCamera(videoTracks.first);
+      } catch (_) {}
+    }
+  }
+
+  /// Enables or disables all video tracks in the local stream.
+  void toggleVideoTrack(bool enabled) {
+    final videoTracks = _localStream?.getVideoTracks();
+    if (videoTracks != null) {
+      for (final track in videoTracks) {
+        track.enabled = enabled;
+      }
+    }
+  }
+
+  /// Enables or disables all audio tracks in the local stream.
+  void toggleAudioTrack(bool enabled) {
+    final audioTracks = _localStream?.getAudioTracks();
+    if (audioTracks != null) {
+      for (final track in audioTracks) {
+        track.enabled = enabled;
+      }
+    }
+  }
+
   /// Convenience alias for [createAnswer].
   Future<RTCSessionDescription> answer(
     RTCPeerConnection peerConnection, {

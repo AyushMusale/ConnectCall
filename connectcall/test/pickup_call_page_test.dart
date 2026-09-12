@@ -185,6 +185,200 @@ void main() {
 
       expect(pickUpTapped, isTrue);
     });
+
+    testWidgets('Renders Incoming Video Call badge above avatar for video calls', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      testBloc.emit(const CallState(
+        status: CallStateStatus.incoming,
+        callId: 'call_video_1',
+        otherUserId: 'cnt-1',
+        otherUserName: 'Aditi Sharma',
+        callType: 'video',
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PickupCallPage(
+            callBloc: testBloc,
+            contactName: 'Aditi Sharma',
+            callType: 'video',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 1. Video call badge exists
+      final badgeFinder = find.byKey(const Key('pickup_video_call_badge'));
+      expect(badgeFinder, findsOneWidget);
+      expect(find.text('Incoming Video Call'), findsOneWidget);
+      expect(find.byIcon(Icons.videocam_rounded), findsOneWidget);
+      expect(find.text('30s'), findsOneWidget);
+
+      // 2. Video call badge is positioned above the avatar
+      final badgePos = tester.getTopLeft(badgeFinder);
+      final avatarPos = tester.getTopLeft(find.byType(CircleAvatar));
+      expect(badgePos.dy, lessThan(avatarPos.dy));
+    });
+
+    testWidgets('Does not render Video Call badge for audio calls', (
+      WidgetTester tester,
+    ) async {
+      testBloc.emit(const CallState(
+        status: CallStateStatus.incoming,
+        callId: 'call_audio_1',
+        otherUserId: 'cnt-1',
+        otherUserName: 'Aditi Sharma',
+        callType: 'audio',
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PickupCallPage(
+            callBloc: testBloc,
+            contactName: 'Aditi Sharma',
+            callType: 'audio',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('pickup_video_call_badge')), findsNothing);
+      expect(find.text('Incoming Video Call'), findsNothing);
+      expect(find.text('Incoming call...'), findsOneWidget);
+    });
+
+    testWidgets('Stays on screen and counts down without dismissing when call ended occurs', (
+      WidgetTester tester,
+    ) async {
+      testBloc.emit(const CallState(
+        status: CallStateStatus.incoming,
+        callId: 'call_countdown_1',
+        otherUserId: 'cnt-1',
+        otherUserName: 'Aditi Sharma',
+        callType: 'video',
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PickupCallPage(
+            callBloc: testBloc,
+            contactName: 'Aditi Sharma',
+            callType: 'video',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('30s'), findsOneWidget);
+
+      // Simulate remote side ending / failing
+      testBloc.emit(const CallState(
+        status: CallStateStatus.ended,
+        callId: 'call_countdown_1',
+      ));
+      await tester.pump(const Duration(seconds: 1));
+
+      // Page must NOT dismiss; it remains active for user to choose
+      expect(find.byKey(const Key('pickup_video_call_badge')), findsOneWidget);
+      expect(find.text('29s'), findsOneWidget);
+      expect(find.byKey(const Key('pickup_end_button')), findsOneWidget);
+      expect(find.byKey(const Key('pickup_accept_button')), findsOneWidget);
+
+      // Advance 10 more seconds
+      await tester.pump(const Duration(seconds: 10));
+      expect(find.text('19s'), findsOneWidget);
+    });
+
+    testWidgets('30-second timeout automatically triggers timeout missed', (
+      WidgetTester tester,
+    ) async {
+      testBloc.emit(const CallState(
+        status: CallStateStatus.incoming,
+        callId: 'call_timeout_1',
+        otherUserId: 'cnt-1',
+        otherUserName: 'Aditi Sharma',
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PickupCallPage(
+            callBloc: testBloc,
+            contactName: 'Aditi Sharma',
+            timeoutDuration: const Duration(seconds: 3),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('pickup_end_button')), findsOneWidget);
+
+      // Advance 3 seconds to expire timeout
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      expect(testBloc.state.isMissed, isTrue);
+    });
+
+    testWidgets('Once receiver accepts the video call shows same UI as caller with localstream on bottom right and options', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      testBloc.emit(const CallState(
+        status: CallStateStatus.incoming,
+        callId: 'call_video_accept_123',
+        otherUserId: 'caller-1',
+        otherUserName: 'Aditi Sharma',
+        callType: 'video',
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PickupCallPage(
+            callBloc: testBloc,
+            callId: 'call_video_accept_123',
+            otherUserId: 'caller-1',
+            contactName: 'Aditi Sharma',
+            avatarUrl: null,
+            callType: 'video',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Pick Up'), findsOneWidget);
+
+      // Receiver accepts the video call
+      await tester.tap(find.byKey(const Key('pickup_accept_button')));
+      await tester.pump();
+
+      // Verify that after accepting, receiver sees the same ongoing UI as caller:
+      // 1. Receiver's local stream preview in bottom-right corner with 'You'
+      expect(find.byKey(const Key('local_video_stream')), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
+
+      // 2. Caller full-screen video stream container
+      expect(find.byKey(const Key('remote_video_stream')), findsOneWidget);
+
+      // 3. Caller name and duration
+      expect(find.text('Aditi Sharma'), findsWidgets);
+      expect(find.text('00:00'), findsOneWidget);
+
+      // 4. Options dock: Mute, Flip, Cam Off, End
+      expect(find.text('Mute'), findsOneWidget);
+      expect(find.text('Flip'), findsOneWidget);
+      expect(find.text('Cam Off'), findsOneWidget);
+      expect(find.text('End'), findsOneWidget);
+    });
   });
 
   group('PickupCallPage LayoutBuilder & Responsiveness Tests', () {
@@ -199,7 +393,7 @@ void main() {
     };
 
     for (final entry in devices.entries) {
-      testWidgets('Renders without overflow on ${entry.key}', (
+      testWidgets('Renders without overflow on ${entry.key} for video call', (
         WidgetTester tester,
       ) async {
         tester.view.physicalSize = entry.value;
@@ -218,6 +412,7 @@ void main() {
           callId: 'call_123',
           otherUserId: 'cnt-1',
           otherUserName: 'Aditi Sharma',
+          callType: 'video',
         ));
 
         await tester.pumpWidget(
@@ -226,12 +421,15 @@ void main() {
               callBloc: bloc,
               contactName: 'Aditi Sharma',
               avatarUrl: null,
+              callType: 'video',
             ),
           ),
         );
         await tester.pump();
 
         expect(tester.takeException(), isNull);
+        expect(find.byKey(const Key('pickup_video_call_badge')), findsOneWidget);
+        expect(find.text('Incoming Video Call'), findsOneWidget);
         expect(find.text('Aditi Sharma'), findsOneWidget);
         expect(find.text('Incoming call...'), findsOneWidget);
         expect(find.text('End'), findsOneWidget);

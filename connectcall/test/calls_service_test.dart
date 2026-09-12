@@ -75,6 +75,17 @@ class FakeWebRTCService extends WebRTCService {
     return RTCSessionDescription('dummy_offer_sdp', 'offer');
   }
 
+  bool answerCreated = false;
+
+  @override
+  Future<RTCSessionDescription> createAnswer(
+    RTCPeerConnection peerConnection, {
+    Map<String, dynamic>? constraints,
+  }) async {
+    answerCreated = true;
+    return RTCSessionDescription('dummy_answer_sdp', 'answer');
+  }
+
   @override
   Future<void> setRemoteDescription(
     RTCPeerConnection peerConnection,
@@ -126,6 +137,8 @@ class FakeSignalingServiceForCalls extends SignalingService {
     required String receiverId,
     RTCSessionDescription? offer,
     String? callerId,
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
     String? callId,
   }) async {
@@ -142,6 +155,8 @@ class FakeSignalingServiceForCalls extends SignalingService {
     required RTCSessionDescription offer,
     String? receiverId,
     String? callerId,
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
   }) async {
     executionSteps.add('send offer to calls/{callId}');
@@ -169,6 +184,7 @@ class FakeSignalingServiceForCalls extends SignalingService {
     void Function(Object error)? onError,
   }) {
     capturedOnAnswer = onAnswer;
+    capturedOnOffer = onOffer;
     capturedOnStatusChanged = onStatusChanged;
     final controller = StreamController<DocumentSnapshot<Map<String, dynamic>>>();
     return controller.stream.listen(null);
@@ -192,6 +208,23 @@ class FakeSignalingServiceForCalls extends SignalingService {
     required String status,
   }) async {
     updatedStatus = status;
+  }
+
+  void Function(RTCSessionDescription offer)? capturedOnOffer;
+  String? answerSentCallId;
+  RTCSessionDescription? sentAnswer;
+  String? answerStatus;
+
+  @override
+  Future<void> sendAnswer({
+    required String callId,
+    required RTCSessionDescription answer,
+    String status = 'ongoing',
+  }) async {
+    executionSteps.add('send answer to calls/{callId}');
+    answerSentCallId = callId;
+    sentAnswer = answer;
+    answerStatus = status;
   }
 }
 
@@ -285,6 +318,38 @@ void main() {
       expect(fakeSignaling.updatedStatus, equals('ended'));
       expect(callsService.currentCallId, isNull);
       expect(fakeWebRTC.mockPc.isDisposed, isTrue);
+    });
+
+    test('acceptCall for video call sets up video/audio tracks, sends answer, and updates status', () async {
+      String? callStatus;
+      await callsService.acceptCall(
+        'call_incoming_777',
+        offer: RTCSessionDescription('remote_offer_sdp', 'offer'),
+        isVideo: true,
+        onCallStatusChanged: (status) => callStatus = status,
+      );
+
+      // Verify sequence: answer sent
+      expect(fakeSignaling.executionSteps, equals(['send answer to calls/{callId}']));
+      expect(callsService.currentCallId, equals('call_incoming_777'));
+      expect(fakeWebRTC.audioVideoAdded, isTrue);
+      expect(fakeWebRTC.answerCreated, isTrue);
+      expect(fakeWebRTC.setRemoteDesc?.sdp, equals('remote_offer_sdp'));
+      expect(fakeSignaling.answerSentCallId, equals('call_incoming_777'));
+      expect(fakeSignaling.sentAnswer?.sdp, equals('dummy_answer_sdp'));
+      expect(fakeSignaling.answerStatus, equals('ongoing'));
+
+      // Verify ICE candidates sent as callee (isCaller: false)
+      expect(fakeWebRTC.candidateCallback, isNotNull);
+      final localCandidate = RTCIceCandidate('cand_callee', 'video', 0);
+      fakeWebRTC.candidateCallback!(localCandidate);
+      expect(fakeSignaling.sentCandidates.length, equals(1));
+      expect(fakeSignaling.sentCandidates.first.candidate, equals('cand_callee'));
+
+      // Verify status change callback
+      expect(fakeSignaling.capturedOnStatusChanged, isNotNull);
+      fakeSignaling.capturedOnStatusChanged!('ended');
+      expect(callStatus, equals('ended'));
     });
   });
 }

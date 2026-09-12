@@ -324,6 +324,7 @@ void main() {
       expect(find.text('Calls you make or receive will appear here.'),
           findsOneWidget);
       expect(find.byType(CallLogItem), findsNothing);
+      expect(find.byType(RefreshIndicator), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump();

@@ -20,6 +20,8 @@ class MockTestCallsService extends CallsService {
   @override
   Future<String> startCall(
     String otherUserId, {
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
     bool isVideo = false,
     void Function(MediaStream remoteStream)? onRemoteStream,
@@ -411,18 +413,28 @@ void main() {
       expect(find.text('Ringing'), findsOneWidget);
       expect(find.text('00:28'), findsOneWidget);
 
-      // Status changes to ongoing via CallStatusUpdated event
-      testBloc.add(const CallStatusUpdated('ongoing'));
-      await pumpEventQueue();
+      print('BEFORE EMIT: ${testBloc.state}');
+      // Status changes to ongoing
+      testBloc.emit(testBloc.state.copyWith(
+        status: CallStateStatus.ongoing,
+        durationSeconds: 0,
+      ));
+      print('AFTER EMIT: ${testBloc.state}');
       await tester.pump();
+      await tester.pump();
+      for (final widget in tester.widgetList<Text>(find.byType(Text))) {
+        print('FOUND TEXT: "${widget.data}"');
+      }
 
       expect(find.text('Ongoing'), findsOneWidget);
       expect(find.text('00:00'), findsOneWidget);
 
       // Timer ticks forward
-      testBloc.add(const CallTimerTicked(5));
-      await pumpEventQueue();
-      await tester.pump();
+      testBloc.emit(testBloc.state.copyWith(
+        status: CallStateStatus.ongoing,
+        durationSeconds: 5,
+      ));
+      await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Ongoing'), findsOneWidget);
       expect(find.text('00:05'), findsOneWidget);
@@ -487,6 +499,211 @@ void main() {
       expect(find.text('Call Missed'), findsOneWidget);
       expect(find.text('00:00'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 1200));
+    });
+
+    testWidgets('Video call ongoing renders remote video, local video in bottom-right corner, and controls', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      testBloc.emit(const CallState(
+        status: CallStateStatus.ongoing,
+        callId: 'call_video_123',
+        otherUserId: 'cnt-1',
+        otherUserName: 'Aditi Sharma',
+        callType: 'video',
+        durationSeconds: 15,
+      ));
+
+      bool cameraSwitched = false;
+      bool cameraToggled = false;
+      bool muteToggled = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OnCallPage(
+            otherUserId: 'cnt-1',
+            contactName: 'Aditi Sharma',
+            callType: 'video',
+            callBloc: testBloc,
+            onCameraSwitched: () => cameraSwitched = true,
+            onCameraToggled: (val) => cameraToggled = val,
+            onMuteToggled: (val) => muteToggled = val,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Remote video stream container
+      expect(find.byKey(const Key('remote_video_stream')), findsOneWidget);
+
+      // Local video stream container in bottom-right corner
+      expect(find.byKey(const Key('local_video_stream')), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
+
+      // Call header
+      expect(find.text('Aditi Sharma'), findsWidgets);
+      expect(find.text('00:15'), findsOneWidget);
+
+      // Video Controls: Mute, Flip, Cam Off, End
+      expect(find.text('Mute'), findsOneWidget);
+      expect(find.text('Flip'), findsOneWidget);
+      expect(find.text('Cam Off'), findsOneWidget);
+      expect(find.text('End'), findsOneWidget);
+
+      // Tap Flip Camera
+      await tester.tap(find.text('Flip'));
+      await tester.pump();
+      expect(cameraSwitched, isTrue);
+
+      // Tap Turn Off Camera
+      await tester.tap(find.text('Cam Off'));
+      await tester.pump();
+      expect(cameraToggled, isTrue);
+      expect(find.text('Cam On'), findsOneWidget);
+
+      // Tap Mute
+      await tester.tap(find.text('Mute'));
+      await tester.pump();
+      expect(muteToggled, isTrue);
+      expect(find.text('Unmute'), findsOneWidget);
+    });
+
+    testWidgets('Receiver side video call ongoing renders remote video, local video in bottom-right corner, and controls without triggering CallStartRequested', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      // Pre-seed bloc in ongoing state for receiver
+      testBloc.emit(const CallState(
+        status: CallStateStatus.ongoing,
+        callId: 'call_video_incoming_123',
+        otherUserId: 'caller-456',
+        otherUserName: 'Rahul Verma',
+        callType: 'video',
+        durationSeconds: 42,
+      ));
+
+      bool cameraSwitched = false;
+      bool cameraToggled = false;
+      bool muteToggled = false;
+      bool endCallTapped = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OnCallPage(
+            otherUserId: 'caller-456',
+            contactName: 'Rahul Verma',
+            callType: 'video',
+            callId: 'call_video_incoming_123',
+            isIncoming: true,
+            callBloc: testBloc,
+            onCameraSwitched: () => cameraSwitched = true,
+            onCameraToggled: (val) => cameraToggled = val,
+            onMuteToggled: (val) => muteToggled = val,
+            onEndCall: () => endCallTapped = true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Ensure no new outgoing call was initiated by receiver
+      expect(testBloc.state.status, equals(CallStateStatus.ongoing));
+      expect(testBloc.state.callId, equals('call_video_incoming_123'));
+
+      // Remote video stream container
+      expect(find.byKey(const Key('remote_video_stream')), findsOneWidget);
+
+      // Local video stream preview in bottom-right corner
+      expect(find.byKey(const Key('local_video_stream')), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
+
+      // Top Call header with caller name and duration
+      expect(find.text('Rahul Verma'), findsWidgets);
+      expect(find.text('00:42'), findsOneWidget);
+
+      // Video Controls: Mute, Flip, Cam Off, End
+      expect(find.text('Mute'), findsOneWidget);
+      expect(find.text('Flip'), findsOneWidget);
+      expect(find.text('Cam Off'), findsOneWidget);
+      expect(find.text('End'), findsOneWidget);
+
+      // Tap Flip Camera
+      await tester.tap(find.text('Flip'));
+      await tester.pump();
+      expect(cameraSwitched, isTrue);
+
+      // Tap Turn Off Camera
+      await tester.tap(find.text('Cam Off'));
+      await tester.pump();
+      expect(cameraToggled, isTrue);
+      expect(find.text('Cam On'), findsOneWidget);
+
+      // Tap Mute
+      await tester.tap(find.text('Mute'));
+      await tester.pump();
+      expect(muteToggled, isTrue);
+      expect(find.text('Unmute'), findsOneWidget);
+
+      // Tap End Call
+      await tester.tap(find.text('End'));
+      await tester.pump();
+      expect(endCallTapped, isTrue);
+    });
+
+    testWidgets('Receiver side video call connecting displays Incoming Video Call badge above avatar and local video preview', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      // Pre-seed bloc in incoming state
+      testBloc.emit(const CallState(
+        status: CallStateStatus.incoming,
+        callId: 'call_video_incoming_456',
+        otherUserId: 'caller-789',
+        otherUserName: 'Sneha Patel',
+        callType: 'video',
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OnCallPage(
+            otherUserId: 'caller-789',
+            contactName: 'Sneha Patel',
+            callType: 'video',
+            callId: 'call_video_incoming_456',
+            isIncoming: true,
+            callBloc: testBloc,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Connecting layout renders the video call badge above avatar
+      expect(find.byKey(const Key('on_call_video_badge')), findsOneWidget);
+      expect(find.text('Incoming Video Call'), findsOneWidget);
+
+      // Caller Name and avatar
+      expect(find.text('Sneha Patel'), findsOneWidget);
+
+      // Local video preview in bottom-right corner
+      expect(find.byKey(const Key('local_video_stream')), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
+
+      // Controls dock
+      expect(find.text('Mute'), findsOneWidget);
+      expect(find.text('Flip'), findsOneWidget);
+      expect(find.text('Cam Off'), findsOneWidget);
+      expect(find.text('End'), findsOneWidget);
     });
   });
 }

@@ -125,7 +125,7 @@ class _AppHeaderState extends State<AppHeader> {
                       _callStatusSubscription = null;
                       _currentRingingCallId = null;
                       // Answered: handled by PickUp -> /on-call
-                    } else if (s == 'rejected' || s == 'missed') {
+                    } else if (s == 'rejected') {
                       _incomingTimeoutTimer?.cancel();
                       _callStatusSubscription?.cancel();
                       _callStatusSubscription = null;
@@ -134,7 +134,7 @@ class _AppHeaderState extends State<AppHeader> {
                         context.go('/home');
                       }
                     }
-                    // For 'ended', keep page open till 30 seconds then close via timeout
+                    // For 'ended' and 'missed', keep page open till 30 seconds then close via timeout / pickup page
                   },
                 );
               }

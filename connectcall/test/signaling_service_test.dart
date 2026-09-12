@@ -27,6 +27,8 @@ class TestableSignalingService extends SignalingService {
     required String receiverId,
     RTCSessionDescription? offer,
     String? callerId,
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
     String? callId,
   }) async {

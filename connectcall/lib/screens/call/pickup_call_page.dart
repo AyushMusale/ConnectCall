@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../injection.dart';
 import 'bloc/call_bloc.dart';
+import 'on_call_page.dart';
 
 /// Screen displayed when the user receives an incoming audio or video call.
 /// Recreates the UI from pickup-call-page.png:
 /// - Brand header 'Connect-Call' & subtitle 'Stay close, no matter the distance'
 /// - Organic decorative wavy background accents in top-left and bottom-right corners
 /// - Concentric glowing halos around the caller's avatar
+/// - Video call indicator badge directly above the avatar for video calls
+/// - 30-second countdown window giving user time to choose
 /// - Caller name and 'Incoming call...' subtitle
 /// - Red circular 'End' action button with soft red glow
 /// - Orange circular 'Pick Up' action button with soft orange glow
@@ -23,6 +28,7 @@ class PickupCallPage extends StatefulWidget {
     this.avatarUrl =
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     this.callType = 'audio',
+    this.timeoutDuration = const Duration(seconds: 30),
     this.callBloc,
     this.onPickUp,
     this.onEnd,
@@ -43,6 +49,9 @@ class PickupCallPage extends StatefulWidget {
   /// Call type: 'audio' or 'video'.
   final String callType;
 
+  /// Decision window duration before call times out (default 30s).
+  final Duration timeoutDuration;
+
   /// Optional injected [CallBloc] for dependency injection and testing.
   final CallBloc? callBloc;
 
@@ -60,6 +69,52 @@ class _PickupCallPageState extends State<PickupCallPage> {
   CallBloc? _callBloc;
   bool _createdLocalBloc = false;
   bool _redirected = false;
+  bool _isAccepted = false;
+  Timer? _countdownTimer;
+  late int _remainingSeconds;
+
+  bool get _isVideoCall {
+    final typeFromWidget = widget.callType.toLowerCase();
+    final typeFromBloc = _callBloc?.state.callType.toLowerCase() ?? '';
+    return typeFromWidget == 'video' || typeFromBloc == 'video';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _remainingSeconds = widget.timeoutDuration.inSeconds > 0
+        ? widget.timeoutDuration.inSeconds
+        : 30;
+    _startCountdownTimer();
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_remainingSeconds > 1) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        timer.cancel();
+        _remainingSeconds = 0;
+        _handleTimeout();
+      }
+    });
+  }
+
+  void _handleTimeout() {
+    if (_redirected) return;
+    _redirected = true;
+    _countdownTimer?.cancel();
+
+    _callBloc?.add(const CallTimeoutMissed());
+    _dismissPage();
+  }
 
   @override
   void didChangeDependencies() {
@@ -97,6 +152,7 @@ class _PickupCallPageState extends State<PickupCallPage> {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     if (_createdLocalBloc) {
       _callBloc?.close();
     }
@@ -106,6 +162,13 @@ class _PickupCallPageState extends State<PickupCallPage> {
   void _handlePickUp() {
     if (_redirected) return;
     _redirected = true;
+    _countdownTimer?.cancel();
+
+    if (mounted) {
+      setState(() {
+        _isAccepted = true;
+      });
+    }
 
     widget.onPickUp?.call();
     _callBloc?.add(const CallPickUpRequested());
@@ -116,6 +179,7 @@ class _PickupCallPageState extends State<PickupCallPage> {
   void _handleEnd() {
     if (_redirected) return;
     _redirected = true;
+    _countdownTimer?.cancel();
 
     widget.onEnd?.call();
     _callBloc?.add(const CallRejectRequested());
@@ -125,13 +189,17 @@ class _PickupCallPageState extends State<PickupCallPage> {
 
   void _redirectToOnCall() {
     if (!mounted) return;
+    final effectiveType = _isVideoCall ? 'video' : widget.callType;
     try {
       context.pushReplacement('/on-call', extra: {
         'otherUserId': widget.otherUserId,
         'otherUserName': widget.contactName,
         'otherUserAvatar': widget.avatarUrl,
-        'callType': widget.callType,
+        'callType': effectiveType,
+        'type': effectiveType,
         'callId': widget.callId ?? _callBloc?.state.callId,
+        'isIncoming': true,
+        'callBloc': _callBloc,
       });
     } catch (_) {
       try {
@@ -170,14 +238,30 @@ class _PickupCallPageState extends State<PickupCallPage> {
         listener: (context, state) {
           if (state.isOngoing && !_redirected) {
             _redirected = true;
+            _countdownTimer?.cancel();
             _redirectToOnCall();
-          } else if ((state.isMissed || state.isRejected || state.isEnded) &&
-              !_redirected) {
+          } else if (state.isRejected && !_redirected) {
             _redirected = true;
+            _countdownTimer?.cancel();
             _dismissPage();
           }
+          // Note: We deliberately do not dismiss immediately on state.isEnded or state.isMissed.
+          // This keeps the pickup call screen active for the full 30 seconds to let the user choose
+          // (Pick Up or End), preventing the 1-second dismissal when the remote party disconnects or fails.
         },
         builder: (context, state) {
+          if (state.isOngoing || _isAccepted) {
+            return OnCallPage(
+              otherUserId: widget.otherUserId,
+              contactName: widget.contactName,
+              avatarUrl: widget.avatarUrl,
+              callType: _isVideoCall ? 'video' : widget.callType,
+              callId: widget.callId ?? state.callId,
+              isIncoming: true,
+              callBloc: effectiveBloc,
+            );
+          }
+
           return Scaffold(
             backgroundColor: const Color(0xFFFFF9F2),
             body: LayoutBuilder(
@@ -185,16 +269,18 @@ class _PickupCallPageState extends State<PickupCallPage> {
                 final maxW = constraints.maxWidth;
                 final maxH = constraints.maxHeight;
 
+                final isCompact = maxH < 620;
                 final contentWidth = maxW.clamp(300.0, 720.0);
-                final horizontalPadding = (maxW * 0.06).clamp(20.0, 36.0);
-                final topSpacing = (maxH * 0.05).clamp(24.0, 50.0);
-                final titleFontSize = (maxW * 0.068).clamp(24.0, 30.0);
-                final subtitleFontSize = (maxW * 0.035).clamp(12.5, 15.0);
-                final nameFontSize = (maxW * 0.068).clamp(24.0, 30.0);
-                final statusFontSize = (maxW * 0.038).clamp(14.0, 16.5);
-                final buttonSize = (maxW * 0.20).clamp(72.0, 84.0);
-                final actionIconSize = (buttonSize * 0.46).clamp(32.0, 38.0);
-                final labelFontSize = (maxW * 0.040).clamp(14.5, 16.5);
+                final horizontalPadding = (maxW * 0.06).clamp(16.0, 36.0);
+                final topSpacing = isCompact ? (maxH * 0.025).clamp(10.0, 24.0) : (maxH * 0.05).clamp(24.0, 50.0);
+                final titleFontSize = (maxW * 0.068).clamp(22.0, 30.0);
+                final subtitleFontSize = (maxW * 0.035).clamp(12.0, 15.0);
+                final nameFontSize = (maxW * 0.068).clamp(22.0, 30.0);
+                final statusFontSize = (maxW * 0.038).clamp(13.5, 16.5);
+                final buttonSize = isCompact ? 68.0 : (maxW * 0.20).clamp(72.0, 84.0);
+                final actionIconSize = (buttonSize * 0.46).clamp(30.0, 38.0);
+                final labelFontSize = (maxW * 0.040).clamp(14.0, 16.5);
+                final bottomSpacing = isCompact ? (maxH * 0.04).clamp(16.0, 32.0) : (maxH * 0.07).clamp(32.0, 60.0);
 
                 return Stack(
                   children: [
@@ -223,10 +309,16 @@ class _PickupCallPageState extends State<PickupCallPage> {
 
                                 const Spacer(flex: 2),
 
+                                // Video Call Indicator Badge (above avatar)
+                                if (_isVideoCall) ...[
+                                  _buildVideoCallBadge(maxH),
+                                  SizedBox(height: isCompact ? 6.0 : (maxH * 0.02).clamp(6.0, 16.0)),
+                                ],
+
                                 // Caller Avatar with Concentric Halos
                                 _buildAvatarWithHalos(maxW, maxH),
 
-                                const SizedBox(height: 24),
+                                SizedBox(height: isCompact ? 12.0 : 24.0),
 
                                 // Caller Name & Incoming Call Subtitle
                                 Text(
@@ -262,7 +354,7 @@ class _PickupCallPageState extends State<PickupCallPage> {
                                   labelFontSize: labelFontSize,
                                 ),
 
-                                SizedBox(height: (maxH * 0.07).clamp(32.0, 60.0)),
+                                SizedBox(height: bottomSpacing),
                               ],
                             ),
                           ),
@@ -321,9 +413,77 @@ class _PickupCallPageState extends State<PickupCallPage> {
     );
   }
 
+  Widget _buildVideoCallBadge(double maxH) {
+    final isCompact = maxH < 620;
+    return Container(
+      key: const Key('pickup_video_call_badge'),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 12 : 16,
+        vertical: isCompact ? 5 : 7,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0x1FFF6E00),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0x66FF6E00),
+          width: 1.2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18FF6E00),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.videocam_rounded,
+              size: isCompact ? 16 : 18,
+              color: const Color(0xFFFF6E00),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Incoming Video Call',
+              style: TextStyle(
+                color: const Color(0xFFFF6E00),
+                fontSize: isCompact ? 12.0 : 13.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.1,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6E00),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_remainingSeconds}s',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.0,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAvatarWithHalos(double maxWidth, double maxHeight) {
+    final isCompact = maxHeight < 620;
+    final minHalo = isCompact ? 130.0 : 190.0;
+    final maxRatio = isCompact ? (_isVideoCall ? 0.26 : 0.32) : 0.36;
     final outerHaloSize =
-        (maxWidth * 0.72).clamp(190.0, (maxHeight * 0.36).clamp(190.0, 280.0));
+        (maxWidth * 0.72).clamp(minHalo, (maxHeight * maxRatio).clamp(minHalo, 280.0));
     final innerHaloSize = outerHaloSize * 0.84;
     final avatarSize = outerHaloSize * 0.68;
     final hasAvatar = widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty;

@@ -27,6 +27,8 @@ class SignalingService {
     required String receiverId,
     RTCSessionDescription? offer,
     String? callerId,
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
     String? callId,
   }) async {
@@ -39,6 +41,9 @@ class SignalingService {
       final callData = <String, dynamic>{
         'id': docRef.id,
         'callerId': effectiveCallerId,
+        if (callerName != null && callerName.isNotEmpty) 'callerName': callerName,
+        if (callerAvatar != null && callerAvatar.isNotEmpty)
+          'callerAvatar': callerAvatar,
         'receiverId': receiverId,
         'type': type,
         'status': 'ringing',
@@ -64,6 +69,8 @@ class SignalingService {
     required RTCSessionDescription offer,
     String? receiverId,
     String? callerId,
+    String? callerName,
+    String? callerAvatar,
     String type = 'audio',
   }) async {
     try {
@@ -80,6 +87,8 @@ class SignalingService {
           receiverId: receiverId,
           offer: offer,
           callerId: callerId,
+          callerName: callerName,
+          callerAvatar: callerAvatar,
           type: type,
         );
       } else {
